@@ -7,8 +7,9 @@ import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
  * 발행 / 수정 / 삭제 후 해당 정적 경로만 재생성한다.
  *
  * 쓰기는 클라이언트(관리자 화면)에서 일어나므로 이 엔드포인트는 호출자를 신뢰할 수 없다.
- * Firebase ID 토큰을 검증하고 UID 가 ADMIN_UID 와 일치하는지 대조한다.
- * 클라이언트의 isAdminUid() 는 UI 가드일 뿐이고 실질 방어선은 여기와 Firestore 보안 규칙이다.
+ * Firebase ID 토큰을 검증하고 admin 커스텀 클레임을 확인한다 —
+ * 클레임은 Firebase 가 서명한 토큰 안에 있어 클라이언트가 위조할 수 없다.
+ * 클라이언트의 hasAdminClaim() 은 UI 가드일 뿐이고 실질 방어선은 여기와 Firestore 보안 규칙이다.
  */
 export async function POST(request: Request): Promise<NextResponse> {
   if (!hasAdminCredentials()) {
@@ -18,26 +19,22 @@ export async function POST(request: Request): Promise<NextResponse> {
     );
   }
 
-  const adminUid = process.env.ADMIN_UID;
-  if (!adminUid) {
-    return NextResponse.json({ error: 'ADMIN_UID 가 설정되지 않았습니다.' }, { status: 503 });
-  }
-
   const header = request.headers.get('authorization') ?? '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
   if (!token) {
     return NextResponse.json({ error: '인증 토큰이 없습니다.' }, { status: 401 });
   }
 
-  let uid: string;
+  let isAdmin = false;
   try {
     // checkRevoked: 로그아웃·계정 비활성화된 토큰을 거른다
-    ({ uid } = await adminAuth().verifyIdToken(token, true));
+    const decoded = await adminAuth().verifyIdToken(token, true);
+    isAdmin = decoded.admin === true;
   } catch {
     return NextResponse.json({ error: '유효하지 않은 토큰입니다.' }, { status: 401 });
   }
 
-  if (uid !== adminUid) {
+  if (!isAdmin) {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 

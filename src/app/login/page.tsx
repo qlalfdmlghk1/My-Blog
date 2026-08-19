@@ -4,7 +4,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { auth, isAdminUid, isClientConfigured } from '@/lib/firebase/client';
+import { auth, hasAdminClaim, isClientConfigured } from '@/lib/firebase/client';
 
 /** 관리자 로그인 — Firebase Auth, 계정 1개(본인) */
 export default function LoginPage() {
@@ -17,9 +17,17 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!configured) return;
-    return onAuthStateChanged(auth(), (user) => {
-      if (user && isAdminUid(user.uid)) router.replace('/admin');
+    let cancelled = false;
+    const unsubscribe = onAuthStateChanged(auth(), (user) => {
+      if (!user) return;
+      void hasAdminClaim(user).then((ok) => {
+        if (ok && !cancelled) router.replace('/admin');
+      });
     });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [configured, router]);
 
   async function submit(e: React.FormEvent) {
@@ -28,7 +36,7 @@ export default function LoginPage() {
     setError(null);
     try {
       const { user } = await signInWithEmailAndPassword(auth(), email, password);
-      if (!isAdminUid(user.uid)) {
+      if (!(await hasAdminClaim(user))) {
         setError('이 계정에는 관리자 권한이 없습니다.');
         return;
       }

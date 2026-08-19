@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "rules:uid": "node scripts/apply-admin-uid.mjs",
+    "admin:claim": "node scripts/set-admin-claim.mjs",
     "rules:deploy": "firebase deploy --only firestore:rules,firestore:indexes,storage"
   },
   "dependencies": {

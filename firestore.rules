@@ -1,11 +1,16 @@
 rules_version = '2';
 
 // 클라이언트 검증에 의존하지 않는다 — 이 규칙이 최종 방어선이다.
-// ADMIN_UID 는 Firebase Auth 콘솔의 본인 UID 로 교체할 것 (TODO).
+//
+// 관리자 판별은 커스텀 클레임으로 한다. UID 를 규칙에 박지 않는 이유:
+//  - 규칙 파일이 정적이 되어 배포 전 치환 단계가 사라진다
+//  - 관리자를 바꾸거나 늘릴 때 규칙 재배포가 필요 없다
+//  - 저장소에 특정 계정 식별자가 남지 않는다
+// 클레임 부여: npm run admin:claim (scripts/set-admin-claim.mjs)
 service cloud.firestore {
   function isAdmin() {
     return request.auth != null
-        && request.auth.uid == 'TODO_ADMIN_UID';
+        && request.auth.token.admin == true;
   }
 
   function validPost(d) {

@@ -49,17 +49,43 @@ function warnUnconfigured(fn: string): void {
   }
 }
 
+/**
+ * 조회 실패를 빈 결과로 떨어뜨린다.
+ *
+ * 이유: 이 함수들은 빌드 시 generateStaticParams / 프리렌더에서 호출된다.
+ * Firestore 일시 장애나 색인 미배포로 빌드 전체가 실패하면 배포 파이프라인이
+ * 통째로 멈춘다. ISR 이므로 다음 재검증에서 정상 데이터로 채워진다.
+ *
+ * 대신 조용히 넘어가지 않는다 — 원인을 알 수 있게 반드시 로그를 남긴다.
+ * (특히 색인 누락은 FAILED_PRECONDITION 과 함께 생성 링크가 함께 출력된다)
+ */
+async function safeQuery<T>(fn: string, run: () => Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[posts] ${fn}() 실패 — 빈 결과로 대체합니다.\n  ${message}`);
+    return fallback;
+  }
+}
+
 export async function getPublishedPosts(): Promise<PostSummary[]> {
   if (!hasAdminCredentials()) {
     warnUnconfigured('getPublishedPosts');
     return [];
   }
-  const snap = await adminDb()
-    .collection(COLLECTION)
-    .where('status', '==', 'published')
-    .orderBy('publishedAt', 'desc')
-    .get();
-  return snap.docs.map((d) => strip(normalize(d.id, d.data())));
+  return safeQuery(
+    'getPublishedPosts',
+    async () => {
+      const snap = await adminDb()
+        .collection(COLLECTION)
+        .where('status', '==', 'published')
+        .orderBy('publishedAt', 'desc')
+        .get();
+      return snap.docs.map((d) => strip(normalize(d.id, d.data())));
+    },
+    [],
+  );
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
@@ -67,14 +93,20 @@ export async function getPostBySlug(slug: string): Promise<Post | null> {
     warnUnconfigured('getPostBySlug');
     return null;
   }
-  const snap = await adminDb()
-    .collection(COLLECTION)
-    .where('slug', '==', slug)
-    .where('status', '==', 'published')
-    .limit(1)
-    .get();
-  const doc = snap.docs[0];
-  return doc ? normalize(doc.id, doc.data()) : null;
+  return safeQuery(
+    'getPostBySlug',
+    async () => {
+      const snap = await adminDb()
+        .collection(COLLECTION)
+        .where('slug', '==', slug)
+        .where('status', '==', 'published')
+        .limit(1)
+        .get();
+      const doc = snap.docs[0];
+      return doc ? normalize(doc.id, doc.data()) : null;
+    },
+    null,
+  );
 }
 
 export async function getPublishedSlugs(): Promise<string[]> {
@@ -87,13 +119,19 @@ export async function getPostsByTag(tag: string): Promise<PostSummary[]> {
     warnUnconfigured('getPostsByTag');
     return [];
   }
-  const snap = await adminDb()
-    .collection(COLLECTION)
-    .where('status', '==', 'published')
-    .where('tags', 'array-contains', tag)
-    .orderBy('publishedAt', 'desc')
-    .get();
-  return snap.docs.map((d) => strip(normalize(d.id, d.data())));
+  return safeQuery(
+    'getPostsByTag',
+    async () => {
+      const snap = await adminDb()
+        .collection(COLLECTION)
+        .where('status', '==', 'published')
+        .where('tags', 'array-contains', tag)
+        .orderBy('publishedAt', 'desc')
+        .get();
+      return snap.docs.map((d) => strip(normalize(d.id, d.data())));
+    },
+    [],
+  );
 }
 
 export interface TagCount {

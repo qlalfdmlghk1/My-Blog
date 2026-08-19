@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// 클라이언트 검증에 의존하지 않는다 — 이 규칙이 최종 방어선이다.
+// ADMIN_UID 는 Firebase Auth 콘솔의 본인 UID 로 교체할 것 (TODO).
+service cloud.firestore {
+  function isAdmin() {
+    return request.auth != null
+        && request.auth.uid == 'TODO_ADMIN_UID';
+  }
+
+  function validPost(d) {
+    return d.keys().hasAll(['slug', 'title', 'content', 'status', 'category', 'tags'])
+        && d.slug is string && d.slug.size() > 0 && d.slug.size() < 200
+        && d.title is string && d.title.size() < 300
+        && d.content is string
+        && d.status in ['draft', 'published']
+        && d.category in ['performance', 'frontend', 'architecture',
+                          'troubleshooting', 'devenv', 'retrospective']
+        && d.tags is list && d.tags.size() <= 20;
+  }
+
+  match /databases/{database}/documents {
+    match /posts/{postId} {
+      // published 글만 공개 읽기. draft 는 관리자만.
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow create: if isAdmin() && validPost(request.resource.data);
+      allow update: if isAdmin() && validPost(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    // 명시하지 않은 모든 경로는 차단
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

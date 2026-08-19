@@ -1,7 +1,7 @@
 'use client';
 
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
+import { getAuth, type Auth, type User } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
@@ -37,8 +37,19 @@ export function storage(): FirebaseStorage {
   return getStorage(app());
 }
 
-/** UI 가드용. 최종 방어선은 Firestore 보안 규칙과 서버 토큰 검증이다. */
-export function isAdminUid(uid: string | null | undefined): boolean {
-  const expected = process.env.NEXT_PUBLIC_ADMIN_UID;
-  return Boolean(expected && uid && uid === expected);
+/**
+ * 관리자 여부를 커스텀 클레임으로 판별한다. UI 가드용이며,
+ * 최종 방어선은 Firestore 보안 규칙과 서버 토큰 검증이다.
+ *
+ * forceRefresh 를 켜는 이유: 클레임은 ID 토큰에 실려 오는데 토큰은 1시간 캐시된다.
+ * 방금 클레임을 부여받은 계정이 "권한 없음"으로 튕기는 것을 막는다.
+ */
+export async function hasAdminClaim(user: User | null | undefined): Promise<boolean> {
+  if (!user) return false;
+  try {
+    const { claims } = await user.getIdTokenResult(true);
+    return claims.admin === true;
+  } catch {
+    return false;
+  }
 }

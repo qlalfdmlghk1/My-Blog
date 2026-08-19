@@ -4,7 +4,7 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
-import { auth, isAdminUid, isClientConfigured } from '@/lib/firebase/client';
+import { auth, hasAdminClaim, isClientConfigured } from '@/lib/firebase/client';
 
 type State = { status: 'loading' } | { status: 'denied'; reason: string } | { status: 'ok'; user: User };
 
@@ -27,18 +27,28 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       });
       return;
     }
-    return onAuthStateChanged(auth(), (user) => {
+    let cancelled = false;
+    const unsubscribe = onAuthStateChanged(auth(), (user) => {
       if (!user) {
         router.replace('/login');
         setState({ status: 'denied', reason: '로그인이 필요합니다.' });
         return;
       }
-      if (!isAdminUid(user.uid)) {
-        setState({ status: 'denied', reason: '이 계정에는 관리자 권한이 없습니다.' });
-        return;
-      }
-      setState({ status: 'ok', user });
+      // 클레임 확인은 토큰 갱신을 동반하므로 비동기다.
+      // 콜백이 여러 번 불릴 수 있어 언마운트 후 setState 를 막는다.
+      void hasAdminClaim(user).then((ok) => {
+        if (cancelled) return;
+        setState(
+          ok
+            ? { status: 'ok', user }
+            : { status: 'denied', reason: '이 계정에는 관리자 권한이 없습니다.' },
+        );
+      });
     });
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [router]);
 
   if (state.status === 'loading') {

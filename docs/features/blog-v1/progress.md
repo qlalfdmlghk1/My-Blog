@@ -50,7 +50,32 @@
 
 ### 🐛 트러블슈팅
 
-<!-- /note troubleshoot 으로 추가 -->
+- **[2026-08-20] 개인키 파싱 실패 — `DECODER routines::unsupported`**
+  `.env.local`을 채운 뒤 `next build`가 `Failed to parse private key`로 죽었다.
+  원인은 `admin.ts`의 `replace(/\n/g, '\n')` — **실제 줄바꿈을 실제 줄바꿈으로** 바꾸는 무의미한 치환이라
+  `.env`에 저장된 백슬래시+n 두 글자가 그대로 남았다. 주석은 의도를 맞게 적어놨는데 코드가 그걸 안 했다.
+  검증 스크립트는 `/\\n/g`를 제대로 써서 통과했기 때문에 "키는 정상인데 빌드만 실패"하는 모습으로 나타나 원인을 찾기 어려웠다.
+  `normalizePrivateKey()`로 분리하고 따옴표 포함·이미 실제 줄바꿈인 경우까지 처리하도록 고쳤다.
+
+- **[2026-08-20] 첫 글을 넣자마자 목록 쿼리가 `FAILED_PRECONDITION`**
+  `where(status) + orderBy(publishedAt)`와 `where(status) + array-contains(tags) + orderBy(publishedAt)`가
+  복합 색인을 요구하는데 색인 정의가 없었다. `firestore.indexes.json`을 추가했다.
+  처음 3개로 잡았다가 실제 쿼리로 확인해 2개로 줄였다 — `where(slug) + where(status)`는 등가 필터만 써서
+  Firestore가 단일 필드 색인을 병합해 처리한다.
+
+- **[2026-08-20] Firestore 오류 하나가 빌드 전체를 중단시킴**
+  색인이 없다는 이유로 `next build`가 실패했다. 일시 장애나 색인 미배포로 배포 파이프라인이 통째로 멈추는 구조라
+  `posts.ts`의 조회 3개를 `safeQuery()`로 감싸 빈 결과로 떨어뜨리되 에러는 반드시 로그로 남기게 했다.
+  ISR이므로 다음 재검증에서 정상 데이터로 채워진다.
+
+- **[2026-08-20] 서비스 계정으로는 색인을 배포할 수 없음**
+  `firebase login`이 불가한 환경에서 서비스 계정 토큰으로 REST API를 직접 호출해 규칙은 배포했지만,
+  색인은 `403 The caller does not have permission`. Admin SDK 서비스 계정에 `datastore.indexes.create`가 없다.
+  IAM 역할을 넓히는 대신 콘솔에서 생성했다 — 색인 2개 때문에 서비스 계정 권한을 키우는 건 나쁜 거래다.
+  (firebase-tools가 먼저 막힌 `serviceusage` 403은 실제 배포가 아니라 API 활성화 여부 사전 점검이었다)
+
+- **[2026-08-20] `Cannot find module for page: /admin/edit/[id]`**
+  이전 `next start` 프로세스가 `.next`를 잡고 있어 발생한 일시적 오류. 프로세스 정리 후 정상 빌드.
 
 ### ⏭️ 남은 작업
 
@@ -58,3 +83,66 @@
 - 배포 URL · 실측 Lighthouse 점수 기록 (PLAN.md "채울 거리")
 - 블로그 이름 / 도메인 확정, 첫 글 3편 주제 (PLAN.md "채울 거리")
 - 테스트 미도입 — 도입 시 `project.config.md`의 `TEST_COMMAND` 설정 필요
+
+### Commit — 2026-08-20 02:26
+
+- Message: `Refactor:#1 관리자 판별을 커스텀 클레임으로 전환`
+- Issue: `#1`
+
+**변경 요약**
+
+- 보안 규칙의 관리자 판별을 UID 하드코딩에서 커스텀 클레임(`request.auth.token.admin == true`)으로 교체
+- `scripts/set-admin-claim.mjs` 추가, `scripts/apply-admin-uid.mjs` 삭제
+- 클라이언트 `isAdminUid()` → `hasAdminClaim()` (ID 토큰 강제 갱신), `/api/revalidate`도 클레임 검증으로 통일
+- `NEXT_PUBLIC_ADMIN_UID` 제거 — `ADMIN_UID`는 클레임 부여 대상 지정 용도로만 남김
+
+**결정 로그**
+
+- UID는 비밀이 아니므로 하드코딩이 보안 구멍은 아니지만, 치환 스크립트가 규칙 파일을 제자리 수정해
+  다음 커밋에 실제 UID가 들어가는 구조였다. 템플릿 파일을 분리하는 대신 클레임으로 전환해
+  규칙 파일을 정적으로 만들고 배포 전 준비 단계를 없앴다.
+- 관리자 교체·추가 시 규칙 재배포가 필요 없어진 것이 부수 효과.
+
+**다음 작업**
+
+- 없음
+
+### Commit — 2026-08-20 02:26
+
+- Message: `Fix:#1 개인키 파싱 정규식과 Firestore 조회 실패 처리 수정`
+- Issue: `#1`
+
+**변경 요약**
+
+- `admin.ts`의 `replace(/\n/g, '\n')` → `normalizePrivateKey()` (백슬래시+n 치환, 따옴표 제거, 실제 줄바꿈 통과)
+- `posts.ts` 조회 3개를 `safeQuery()`로 감싸 실패 시 빈 결과 + 에러 로그
+- `firestore.indexes.json` 추가 (복합 색인 2개)
+
+**결정 로그**
+
+- 조회 실패를 삼키되 반드시 로그를 남긴다. 빌드 중단보다 낫지만 조용한 실패는 더 나쁘다는 판단.
+- 색인은 3개로 잡았다가 실제 쿼리 검증 후 2개로 축소.
+
+**다음 작업**
+
+- 없음
+
+### Commit — 2026-08-20 02:26
+
+- Message: `Chore:#1 블로그 이름을 CHOI's BLOG로 설정`
+- Issue: `#1`
+
+**변경 요약**
+
+- `site.ts`의 `name`을 `CHOI's BLOG`로 확정. 제목·OG·RSS·sitemap·푸터에 전파 확인
+- 이번 세션의 트러블슈팅 5건과 커밋 로그를 progress.md에 기록
+
+**결정 로그**
+
+- `description`·`author`는 임시값. 기획서상 한 줄 소개는 "직접 입력 필요" 항목이라 확정하지 않고
+  검색 결과·OG 카드에 노출된다는 점만 코드 주석과 README에 명시했다.
+
+**다음 작업**
+
+- 한 줄 소개·author 확정
+- Vercel 배포 후 `NEXT_PUBLIC_SITE_URL` 설정, 실측 Lighthouse 기록

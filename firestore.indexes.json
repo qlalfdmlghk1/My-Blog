@@ -1,0 +1,25 @@
+{
+  "indexes": [
+    {
+      "_comment": "getPublishedPosts() — where(status) + orderBy(publishedAt desc)",
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "publishedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comment": "getPostsByTag() — where(status) + array-contains(tags) + orderBy(publishedAt desc)",
+      "collectionGroup": "posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "tags", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "publishedAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "_note": "getPostBySlug() 의 where(slug)+where(status) 는 등가 필터만 쓰므로 복합 색인이 필요 없다 (Firestore 가 단일 필드 색인을 병합한다). 실제로 쿼리해 확인했다.",
+  "fieldOverrides": []
+}

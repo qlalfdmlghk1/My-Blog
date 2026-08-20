@@ -95,7 +95,7 @@ src/
 
 Authentication → 시작하기 → **이메일/비밀번호** 사용 설정 → Users 탭 → 사용자 추가(본인 이메일/비밀번호).
 
-생성된 행의 **사용자 UID**를 복사해 `.env.local`의 `NEXT_PUBLIC_ADMIN_UID`와 `ADMIN_UID` **둘 다**에 넣는다(같은 값).
+생성된 행의 **사용자 UID**를 복사해 `.env.local`의 `ADMIN_UID`에 넣는다. 이 값은 커스텀 클레임을 부여할 대상을 가리키는 용도이고, 실제 권한 판별은 클레임이 한다(7단계).
 
 > 회원가입 화면은 없다. 계정은 콘솔에서만 만든다 — v1은 사용자 1명이다.
 
@@ -127,15 +127,19 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVA
 
 > 이 JSON은 **저장소에 넣지 않는다.** 유출되면 보안 규칙을 통째로 우회당한다. `.gitignore`가 `.env.local`을 막고 있지만 JSON 파일 자체를 프로젝트 폴더에 두지 않는 게 안전하다.
 
-### 7. 보안 규칙의 UID 교체
-
-규칙 파일은 환경변수를 읽지 못해 UID를 하드코딩해야 한다. `.env.local`의 `ADMIN_UID`를 두 규칙 파일에 적용한다:
+### 7. 관리자 클레임 부여
 
 ```bash
-npm run rules:uid
+npm run admin:claim
 ```
 
-`TODO_ADMIN_UID`인 채로 배포하면 본인조차 글을 쓸 수 없으므로, 이 스크립트가 UID 누락·이메일 오입력·두 변수 불일치를 먼저 막는다. 여러 번 실행해도 안전하다.
+`.env.local`의 `ADMIN_UID` 계정에 커스텀 클레임 `{ admin: true }`를 부여한다. 보안 규칙과 서버 검증은 UID가 아니라 이 클레임을 본다.
+
+클레임은 Firebase가 서명한 ID 토큰에 실려 오므로 클라이언트가 위조할 수 없다. UID를 규칙에 하드코딩하지 않는 덕분에 규칙 파일이 정적이 되고(배포 전 치환 단계 없음), 저장소에 계정 식별자가 남지 않으며, 관리자를 바꿀 때 규칙 재배포가 필요 없다.
+
+회수는 `npm run admin:claim -- --revoke`.
+
+> 이미 로그인한 브라우저는 토큰이 갱신돼야 클레임을 인식한다. `hasAdminClaim()`이 `getIdTokenResult(true)`로 강제 갱신하므로 새로고침이면 충분하다.
 
 ### 8. 규칙 · 색인 배포
 
@@ -161,7 +165,7 @@ npm run dev
 
 | 필드 | 타입 | 비고 |
 |---|---|---|
-| `slug` | string | URL. 중복 시 저장이 거부된다 |
+| `slug` | string | URL. 에디터가 저장 전 중복을 검사하지만 **서버 제약은 아니다** (아래 참고) |
 | `title` | string | |
 | `content` | string | 마크다운 원문 |
 | `excerpt` | string | 비우면 본문에서 자동 생성 |
@@ -174,6 +178,8 @@ npm run dev
 
 조회수는 v2로 유예 (Firestore 쓰기 비용 · 봇 카운팅 문제).
 
+> **slug 유일성은 클라이언트 검사에 의존한다.** `firestore.rules`의 `validPost()`는 타입·길이만 보고 유일성은 검사하지 않으며, 검사와 쓰기 사이에 TOCTOU도 열려 있다. 작성자가 1명이라 실무 위험은 낮지만 서버 보장은 아니다. 보장이 필요해지면 문서 ID를 slug로 쓰거나 `slugs/{slug}` 유일성 문서를 두는 방식을 검토할 것.
+
 ## 설계 노트
 
 ### 왜 Next.js인가
@@ -185,16 +191,16 @@ npm run dev
 쓰기는 관리자 화면(클라이언트)에서 일어나므로 서버가 호출자를 신뢰할 수 없다.
 
 ```
-관리자 화면 ──(1) Firestore 쓰기 (보안 규칙이 UID 검사)
+관리자 화면 ──(1) Firestore 쓰기 (보안 규칙이 admin 클레임 검사)
      │
      └────────(2) POST /api/revalidate + Firebase ID 토큰
                     │
                     ├─ verifyIdToken(token, checkRevoked: true)
-                    ├─ uid === ADMIN_UID 대조
+                    ├─ decoded.admin === true 확인
                     └─ revalidatePath('/', '/posts/[slug]', '/tags/*', '/rss.xml', '/sitemap.xml')
 ```
 
-`AuthGuard`와 `isAdminUid()`는 UI 가드일 뿐이다. 실질 방어선은 **Firestore 보안 규칙**과 **이 라우트의 토큰 검증** 두 곳이다.
+`AuthGuard`와 `hasAdminClaim()`은 UI 가드일 뿐이다. 실질 방어선은 **Firestore 보안 규칙**과 **이 라우트의 토큰 검증** 두 곳이고, 둘 다 `admin` 커스텀 클레임을 본다.
 
 ### 마크다운을 서버에서만 파싱하는 이유
 
@@ -241,7 +247,9 @@ Vercel — GitHub 연동 자동 배포. 프로젝트 설정에 `.env.example`의
 
 ## 남은 작업
 
-- [ ] 블로그 이름 · 한 줄 소개 · 도메인 → [src/lib/site.ts](src/lib/site.ts)
+- [x] 블로그 이름 → `CHOI's BLOG` ([src/lib/site.ts](src/lib/site.ts))
+- [ ] 한 줄 소개 · author 는 임시값 — 검색 결과 요약과 OG 카드에 그대로 노출되므로 교체 필요
+- [ ] 도메인 확정 후 `NEXT_PUBLIC_SITE_URL`
 - [ ] Firebase 프로젝트 연결 (`.env.local` + 보안 규칙 `TODO_ADMIN_UID` 2곳)
 - [ ] 첫 글 3편 주제
 - [ ] OG 이미지 — 실제 글로 렌더 확인. 구조는 완료(제목·카테고리 배지·태그·날짜)이나 Firestore 데이터로 검증한 적은 없다

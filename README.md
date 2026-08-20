@@ -165,7 +165,7 @@ npm run dev
 
 | 필드 | 타입 | 비고 |
 |---|---|---|
-| `slug` | string | URL. 중복 시 저장이 거부된다 |
+| `slug` | string | URL. 에디터가 저장 전 중복을 검사하지만 **서버 제약은 아니다** (아래 참고) |
 | `title` | string | |
 | `content` | string | 마크다운 원문 |
 | `excerpt` | string | 비우면 본문에서 자동 생성 |
@@ -177,6 +177,8 @@ npm run dev
 | `publishedAt` | Timestamp \| null | 최초 발행 시점만 기록 |
 
 조회수는 v2로 유예 (Firestore 쓰기 비용 · 봇 카운팅 문제).
+
+> **slug 유일성은 클라이언트 검사에 의존한다.** `firestore.rules`의 `validPost()`는 타입·길이만 보고 유일성은 검사하지 않으며, 검사와 쓰기 사이에 TOCTOU도 열려 있다. 작성자가 1명이라 실무 위험은 낮지만 서버 보장은 아니다. 보장이 필요해지면 문서 ID를 slug로 쓰거나 `slugs/{slug}` 유일성 문서를 두는 방식을 검토할 것.
 
 ## 설계 노트
 

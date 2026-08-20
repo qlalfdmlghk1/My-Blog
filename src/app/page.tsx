@@ -6,7 +6,9 @@ import { getAllTags, getPublishedPosts } from '@/lib/posts';
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  const [posts, tags] = await Promise.all([getPublishedPosts(), getAllTags()]);
+  // 태그는 이 목록에서 집계하므로 Firestore 를 한 번만 읽는다
+  const posts = await getPublishedPosts();
+  const tags = await getAllTags(posts);
 
   return (
     <main className="mx-auto max-w-shell px-5 py-10">

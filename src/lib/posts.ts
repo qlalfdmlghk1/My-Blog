@@ -140,8 +140,9 @@ export interface TagCount {
 }
 
 /** 발행된 글의 태그를 집계. 글 수가 세 자리를 넘으면 별도 집계 문서로 옮길 것. */
-export async function getAllTags(): Promise<TagCount[]> {
-  const posts = await getPublishedPosts();
+export async function getAllTags(known?: PostSummary[]): Promise<TagCount[]> {
+  // 호출부가 이미 목록을 읽었으면 그걸 넘겨 중복 조회를 피한다
+  const posts = known ?? (await getPublishedPosts());
   const counts = new Map<string, number>();
   for (const p of posts) {
     for (const t of p.tags) counts.set(t, (counts.get(t) ?? 0) + 1);

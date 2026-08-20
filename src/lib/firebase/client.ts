@@ -41,14 +41,20 @@ export function storage(): FirebaseStorage {
  * 관리자 여부를 커스텀 클레임으로 판별한다. UI 가드용이며,
  * 최종 방어선은 Firestore 보안 규칙과 서버 토큰 검증이다.
  *
- * forceRefresh 를 켜는 이유: 클레임은 ID 토큰에 실려 오는데 토큰은 1시간 캐시된다.
- * 방금 클레임을 부여받은 계정이 "권한 없음"으로 튕기는 것을 막는다.
+ * 캐시된 토큰을 먼저 보고, 클레임이 없을 때만 강제 갱신한다.
+ * 클레임은 ID 토큰에 실려 오는데 토큰이 1시간 캐시되므로, 방금 클레임을
+ * 부여받은 계정은 캐시된 토큰만 보면 "권한 없음"으로 튕긴다. 그렇다고 항상
+ * 강제 갱신하면 관리자 화면 진입마다 네트워크 왕복이 붙는다.
+ * 정상 경로는 캐시로 끝내고, 실패했을 때만 한 번 더 확인하는 편이 낫다.
  */
 export async function hasAdminClaim(user: User | null | undefined): Promise<boolean> {
   if (!user) return false;
   try {
-    const { claims } = await user.getIdTokenResult(true);
-    return claims.admin === true;
+    const cached = await user.getIdTokenResult();
+    if (cached.claims.admin === true) return true;
+
+    const refreshed = await user.getIdTokenResult(true);
+    return refreshed.claims.admin === true;
   } catch {
     return false;
   }

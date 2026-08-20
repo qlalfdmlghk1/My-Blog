@@ -38,6 +38,8 @@ export function PostEditor({ existing }: { existing?: Post }) {
   const [error, setError] = useState<string | null>(null);
 
   const previewHtml = useMemo(() => renderPreview(content), [content]);
+  // 발췌문 placeholder 도 본문 전체를 정규식으로 훑으므로 미리보기와 같이 memo 한다
+  const excerptHint = useMemo(() => autoExcerpt(content), [content]);
 
   const tags = useMemo(
     () =>
@@ -108,16 +110,21 @@ export function PostEditor({ existing }: { existing?: Post }) {
     setBusy(status === 'published' ? '발행 중…' : '저장 중…');
     setError(null);
     try {
-      if (await isSlugTaken(slug, existing?.id)) {
-        setError(`slug "${slug}" 는 이미 사용 중입니다.`);
+      // 검사와 저장이 같은 값을 봐야 한다 — trim 전 값으로 조회하면
+      // 뒤에 공백이 붙은 slug 가 검사를 통과하고 trim 된 값으로 저장돼 중복이 생긴다.
+      // getPostBySlug 는 limit(1) 이라 그 경우 한쪽 글이 영구히 접근 불가가 된다.
+      const normalizedSlug = slug.trim();
+
+      if (await isSlugTaken(normalizedSlug, existing?.id)) {
+        setError(`slug "${normalizedSlug}" 는 이미 사용 중입니다.`);
         return;
       }
 
       const draft: PostDraft = {
-        slug: slug.trim(),
+        slug: normalizedSlug,
         title: title.trim(),
         content,
-        excerpt: excerpt.trim() || autoExcerpt(content),
+        excerpt: excerpt.trim() || excerptHint,
         category,
         tags,
         coverImage: coverImage.trim() || null,
@@ -207,8 +214,8 @@ export function PostEditor({ existing }: { existing?: Post }) {
           role="alert"
           className="mb-4 rounded-md border border-line px-3 py-2 text-sm"
           style={{
-            backgroundColor: 'var(--cat-performance-bg)',
-            color: 'var(--cat-performance-fg)',
+            backgroundColor: 'var(--danger-bg)',
+            color: 'var(--danger-fg)',
           }}
         >
           {error}
@@ -287,7 +294,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
               id="f-excerpt"
               className={`${field} h-20 resize-y`}
               value={excerpt}
-              placeholder={autoExcerpt(content) || '본문을 쓰면 자동 생성 미리보기가 표시됩니다'}
+              placeholder={excerptHint || '본문을 쓰면 자동 생성 미리보기가 표시됩니다'}
               onChange={(e) => setExcerpt(e.target.value)}
             />
           </div>

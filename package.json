@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "admin:claim": "node scripts/set-admin-claim.mjs",
     "rules:deploy": "firebase deploy --only firestore:rules,firestore:indexes,storage"
@@ -21,6 +21,7 @@
     "shiki": "^3.13.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.6",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",

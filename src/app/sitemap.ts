@@ -6,7 +6,8 @@ import { absoluteUrl } from '@/lib/site';
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [posts, tags] = await Promise.all([getPublishedPosts(), getAllTags()]);
+  const posts = await getPublishedPosts();
+  const tags = await getAllTags(posts);
 
   return [
     {

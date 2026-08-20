@@ -92,7 +92,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p role="alert" className="text-xs" style={{ color: 'var(--cat-performance-fg)' }}>
+            <p role="alert" className="text-xs" style={{ color: 'var(--danger-fg)' }}>
               {error}
             </p>
           )}

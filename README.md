@@ -248,9 +248,12 @@ Vercel — GitHub 연동 자동 배포. 프로젝트 설정에 `.env.example`의
 ## 남은 작업
 
 - [x] 블로그 이름 → `CHOI's BLOG` ([src/lib/site.ts](src/lib/site.ts))
-- [ ] 한 줄 소개 · author 는 임시값 — 검색 결과 요약과 OG 카드에 그대로 노출되므로 교체 필요
-- [ ] 도메인 확정 후 `NEXT_PUBLIC_SITE_URL`
-- [ ] Firebase 프로젝트 연결 (`.env.local` + 보안 규칙 `TODO_ADMIN_UID` 2곳)
+- [x] 한 줄 소개 · author 확정 ([src/lib/site.ts](src/lib/site.ts))
+- [ ] 도메인 확정 후 `NEXT_PUBLIC_SITE_URL` — 커스텀 도메인 예정이라 보류. 지금은
+      `VERCEL_PROJECT_PRODUCTION_URL` 폴백으로 동작한다. 도메인 연결 시점에 함께 등록해야
+      canonical·RSS guid가 한 번만 바뀐다
+- [x] Firebase 프로젝트 연결 — `.env.local` 작성, 보안 규칙 배포, 관리자 커스텀 클레임 부여 완료
+      (규칙은 UID 하드코딩 대신 `request.auth.token.admin` 을 본다)
 - [ ] 첫 글 3편 주제
 - [ ] OG 이미지 — 실제 글로 렌더 확인. 구조는 완료(제목·카테고리 배지·태그·날짜)이나 Firestore 데이터로 검증한 적은 없다
 - [ ] velog canonical 태그 정리 방침 확정 (자체 블로그를 메인, velog는 유입용)

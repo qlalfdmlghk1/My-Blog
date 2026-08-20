@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "admin:claim": "node scripts/set-admin-claim.mjs",
-    "rules:deploy": "firebase deploy --only firestore:rules,firestore:indexes,storage"
+    "rules:deploy": "npx -y firebase-tools deploy --only firestore:rules,firestore:indexes,storage"
   },
   "dependencies": {
     "firebase": "^12.7.0",

@@ -1,8 +1,8 @@
 /**
  * 사이트 메타 — 제목·RSS·sitemap·OG 이미지가 모두 이 값을 쓴다.
  *
- * name 은 확정. description 과 author 는 임시값이므로 그대로 두지 말 것 —
- * 검색 결과 요약과 OG 카드에 그대로 노출된다. (기획서 "채울 거리": 한 줄 소개)
+ * name · description · author 모두 확정값이다.
+ * 이 값들은 검색 결과 요약과 OG 카드에 그대로 노출되므로 바꿀 때는 그 점을 감안한다.
  */
 export const SITE = {
   name: "CHOI's BLOG",

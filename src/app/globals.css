@@ -18,6 +18,10 @@
   --text-dim: #6b6a63;
   --border: #e6e4dd;
 
+  /* 오류 표시 전용 — 카테고리 색과 값이 겹쳐도 토큰은 분리한다.
+     '성능' 카테고리 색을 빌려 쓰면 그 색을 조정할 때 오류 UI 가 함께 바뀐다. */
+  --danger-bg: #faece7;
+  --danger-fg: #712b13;
 }
 
 .dark {
@@ -27,6 +31,8 @@
   --text-dim: #a3a199;
   --border: #33322d;
 
+  --danger-bg: #712b13;
+  --danger-fg: #f5c4b3;
 }
 
 @layer base {

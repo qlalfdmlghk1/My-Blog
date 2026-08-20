@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════
+   무채색 스케일 — 화면의 90%를 담당한다.
+   따뜻한 회색 계열로 잡아 일반 태그(#F1EFE8/#444441)와 톤을 맞춘다.
+
+   카테고리·태그 색(--cat-*, --tag-*)은 여기 없다.
+   src/lib/categories.ts 가 단일 진실 공급원이고,
+   category-css.ts 가 CSS 변수를 생성해 layout 에서 주입한다.
+   (OG 이미지는 CSS 변수를 해석하지 못해 같은 값을 TS 에서 직접 읽는다)
+   ═══════════════════════════════════════════════ */
+:root {
+  --bg: #ffffff;
+  --surface: #faf9f7;
+  --text: #1a1a18;
+  --text-dim: #6b6a63;
+  --border: #e6e4dd;
+
+  /* 오류 표시 전용 — 카테고리 색과 값이 겹쳐도 토큰은 분리한다.
+     '성능' 카테고리 색을 빌려 쓰면 그 색을 조정할 때 오류 UI 가 함께 바뀐다. */
+  --danger-bg: #faece7;
+  --danger-fg: #712b13;
+}
+
+.dark {
+  --bg: #171614;
+  --surface: #1f1e1b;
+  --text: #edece6;
+  --text-dim: #a3a199;
+  --border: #33322d;
+
+  --danger-bg: #712b13;
+  --danger-fg: #f5c4b3;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    -webkit-font-smoothing: antialiased;
+  }
+  /* 링크·버튼에 포인트 컬러를 쓰지 않는다 —
+     파란 링크는 '프론트엔드' 카테고리 색과 충돌해 클릭 가능 여부를 흐린다.
+     진한 무채색 + 밑줄/굵기로만 구분한다. */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  :focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   본문 타이포그래피 — @tailwindcss/typography 없이 직접 정의.
+   플러그인을 쓰면 색·간격이 프리셋에 묶여 위 원칙을 지키기 어렵다.
+   ═══════════════════════════════════════════════ */
+.md {
+  font-size: 1rem;
+  line-height: 1.8;
+  overflow-wrap: break-word;
+}
+.md > * + * {
+  margin-top: 1.15em;
+}
+.md h2,
+.md h3,
+.md h4 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+}
+.md h2 {
+  margin-top: 2.4em;
+  font-size: 1.4rem;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid var(--border);
+}
+.md h3 {
+  margin-top: 1.9em;
+  font-size: 1.15rem;
+}
+.md h4 {
+  margin-top: 1.6em;
+  font-size: 1rem;
+}
+.md a {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+.md ul,
+.md ol {
+  padding-left: 1.35em;
+}
+.md ul {
+  list-style: disc;
+}
+.md ol {
+  list-style: decimal;
+}
+.md li + li {
+  margin-top: 0.4em;
+}
+.md blockquote {
+  padding: 0.1em 0 0.1em 1.1em;
+  border-left: 3px solid var(--border);
+  color: var(--text-dim);
+}
+.md img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.md hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2.4em 0;
+}
+.md table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  display: block;
+  overflow-x: auto;
+}
+.md th,
+.md td {
+  border: 1px solid var(--border);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.md th {
+  background: var(--surface);
+  font-weight: 600;
+}
+
+/* 인라인 코드 */
+.md :not(pre) > code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.875em;
+  background: var(--tag-bg);
+  color: var(--tag-fg);
+  padding: 0.15em 0.4em;
+  border-radius: 4px;
+}
+
+/* ═══════════════════════════════════════════════
+   Shiki — defaultColor:false 로 라이트/다크 2벌이 CSS 변수로 심겨 있다.
+   테마 전환 시 재파싱 없이 변수만 바뀐다.
+   ═══════════════════════════════════════════════ */
+.md pre.shiki {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  padding: 1em 1.15em;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  background-color: var(--shiki-light-bg);
+}
+.md pre.shiki,
+.md pre.shiki span {
+  color: var(--shiki-light);
+}
+.dark .md pre.shiki {
+  background-color: var(--shiki-dark-bg);
+}
+.dark .md pre.shiki,
+.dark .md pre.shiki span {
+  color: var(--shiki-dark);
+}
+.md pre.shiki code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+  }
+}

@@ -64,10 +64,14 @@ export default async function PostPage({ params }: Params) {
   return (
     // 본문은 읽기 좋은 폭(prose)을 유지하고, 목차는 넓은 화면에서만 옆에 붙인다.
     // 목차를 위해 본문 폭을 늘리면 한 줄이 길어져 오히려 읽기 나빠진다.
+    // 본문 한 줄 길이는 목차 유무와 무관하게 44rem 을 지킨다 — 목차가 붙는 xl 에서만
+    // 컨테이너를 넓혀 옆자리를 만든다. 아래 폭에서까지 76rem 을 쓰면 목차 있는 글만
+    // 한 줄이 1.7배 길어져 같은 블로그의 글이 서로 다른 읽기 경험이 된다.
     <main
+      id="main"
       className={
         withToc
-          ? 'mx-auto grid max-w-shell gap-10 px-5 py-12 xl:grid-cols-[minmax(0,44rem)_13rem] xl:justify-center'
+          ? 'mx-auto max-w-prose px-5 py-12 xl:grid xl:max-w-shell xl:grid-cols-[minmax(0,44rem)_13rem] xl:gap-10 xl:justify-center'
           : 'mx-auto max-w-prose px-5 py-12'
       }
     >

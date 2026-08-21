@@ -25,7 +25,7 @@ export default function AdminPage() {
   const published = posts?.filter((p) => p.status === 'published') ?? [];
 
   return (
-    <main className="mx-auto max-w-shell px-5 py-8">
+    <div className="mx-auto max-w-shell px-5 py-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-bold tracking-tight">
           글 관리
@@ -87,6 +87,6 @@ export default function AdminPage() {
           ))}
         </ul>
       )}
-    </main>
+    </div>
   );
 }

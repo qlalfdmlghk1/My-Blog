@@ -156,6 +156,10 @@ npm run rules:deploy
 
 색인 배포를 빠뜨리면 글을 넣는 순간 목록 쿼리가 `FAILED_PRECONDITION`으로 실패한다. `getPublishedPosts()`(status + publishedAt)와 `getPostsByTag()`(status + tags + publishedAt)가 복합 색인을 요구하기 때문이다 — 정의는 `firestore.indexes.json`에 있다. 색인 생성은 몇 분 걸린다.
 
+**규칙 배포는 코드 배포와 별개다.** Vercel이 아니라 Firebase로 나가며, 배포하는 순간 로컬·프리뷰·프로덕션이 전부 새 규칙을 적용받는다. 그래서 새 규칙을 요구하는 코드를 올리기 **전에** 규칙을 먼저 배포해야 한다. 순서가 뒤바뀌면 배포본이 `Missing or insufficient permissions.`를 낸다.
+
+Storage 규칙은 `npm run storage:deploy`로 따로 배포한다. 한 명령에 묶지 않은 이유는, Storage를 아직 켜지 않은 프로젝트에서 그 단계가 실패하면 Firestore 규칙까지 함께 못 올라가기 때문이다. Storage는 콘솔에서 **Storage → 시작하기**를 눌러야 켜지며, 에디터의 이미지 붙여넣기·커버 업로드에 필요하다.
+
 ### 카테고리 만들기
 
 카테고리는 Firestore에 있고 **코드에 기본값이 없다.** 배포 직후에는 0개로 시작하며, `/admin/categories`에서 직접 만든다.

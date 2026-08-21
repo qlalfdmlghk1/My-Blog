@@ -29,7 +29,7 @@ export function SiteSidebar({
   const total = categories.reduce((sum, c) => sum + c.count, 0);
 
   return (
-    <aside className="lg:sticky lg:top-8 lg:order-1 lg:max-h-[calc(100dvh-4rem)] lg:self-start lg:overflow-y-auto">
+    <aside className="lg:sticky lg:top-20 lg:order-1 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto">
       <nav aria-label="카테고리">
         <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-dim">
           카테고리

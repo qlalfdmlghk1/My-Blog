@@ -52,6 +52,10 @@
     color: var(--text);
     -webkit-font-smoothing: antialiased;
   }
+  /* '본문으로 건너뛰기'의 도착지 — sticky 헤더(3.5rem) 뒤로 숨으면 링크가 무의미해진다 */
+  #main {
+    scroll-margin-top: 5rem;
+  }
   /* 링크·버튼에 포인트 컬러를 쓰지 않는다 —
      파란 링크는 '프론트엔드' 카테고리 색과 충돌해 클릭 가능 여부를 흐린다.
      진한 무채색 + 밑줄/굵기로만 구분한다. */
@@ -84,8 +88,8 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.35;
-  /* 목차 링크로 이동했을 때 제목이 화면 맨 위에 딱 붙어 잘려 보이지 않게 여유를 둔다 */
-  scroll-margin-top: 1.5rem;
+  /* 목차 링크로 이동했을 때 제목이 sticky 헤더(3.5rem) 뒤로 숨지 않게 띄운다 */
+  scroll-margin-top: 5rem;
 }
 .md h2 {
   margin-top: 2.4em;

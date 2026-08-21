@@ -220,3 +220,34 @@
 
 - 배포 후 Lighthouse 실측 → 폰트 전략 확정
 - CDN 스타일시트 버전 고정·SRI (사용자 판단 필요)
+
+---
+
+### Commit — 2026-08-22 01:56
+
+- Message: `Feat:#4 헤더 고정과 테마 토글 스위치 전환`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약**
+
+- `SiteHeader` 를 sticky + 반투명 blur 로 전환하고 높이를 3.5rem 으로 고정
+- 헤더가 콘텐츠 위에 겹치므로 딸려오는 세 자리를 함께 보정했다 —
+  `SiteSidebar`·`PostToc` 의 sticky top(`top-8` → `top-20`, max-height `4rem` → `7rem`),
+  `globals.css` 의 제목 `scroll-margin-top`(1.5rem → 5rem), `#main` scroll-margin 신설
+- `ThemeToggle` 을 텍스트 버튼에서 `role="switch"` 스위치로 교체. 손잡이 아이콘(해/달) 추가
+- 로고에 무채색 점 표식 추가 (색은 분류에만 쓰는 규칙 유지)
+
+**결정 로그**
+
+- 토글 손잡이 위치를 React state 가 아니라 `dark:` 변형으로만 그린다. layout 의 인라인
+  스크립트가 첫 페인트 전에 `.dark` 를 붙이므로 CSS 로 그리면 하이드레이션 전에도 위치가 맞다.
+  state 로 그리면 다크 모드에서 손잡이가 왼쪽에 한 번 찍혔다 튄다. state 는 `aria-checked` 전용
+- 헤더 높이(3.5rem)가 사이드바 top·제목 scroll-margin 과 물려 있어 `SiteHeader` 주석에
+  "높이를 바꾸면 그 세 곳도 함께 바꿔야 한다"를 명시했다
+- `#main` 에 scroll-margin 을 준 이유: sticky 헤더 뒤로 도착지가 숨으면 "본문으로 건너뛰기"
+  링크가 무의미해진다
+
+**다음 작업**
+
+- 배포 후 Lighthouse 실측 → 폰트 전략 확정

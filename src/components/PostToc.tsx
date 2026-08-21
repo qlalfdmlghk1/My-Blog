@@ -22,7 +22,7 @@ export function PostToc({ toc }: { toc: TocEntry[] }) {
   if (!hasToc(toc)) return null;
 
   return (
-    <nav aria-label="목차" className="hidden xl:sticky xl:top-8 xl:block xl:max-h-[calc(100dvh-4rem)] xl:self-start xl:overflow-y-auto">
+    <nav aria-label="목차" className="hidden xl:sticky xl:top-20 xl:block xl:max-h-[calc(100dvh-7rem)] xl:self-start xl:overflow-y-auto">
       <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-dim">
         목차
       </h2>

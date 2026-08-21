@@ -56,6 +56,21 @@ export default function AdminCategoriesPage() {
     );
   }, [load]);
 
+  /**
+   * 존재하지 않는 카테고리를 참조하는 글.
+   *
+   * 카테고리를 코드에서 Firestore 로 옮기면서 생길 수 있는 상태다 — 예전 글이
+   * 가리키던 slug 로 문서를 만들지 않으면 그 글은 어느 카테고리에도 안 잡히고
+   * 사이드바에서 사라진다. 목록 화면에는 보이므로 눈치채기 어려워 여기서 알린다.
+   */
+  const orphans = useMemo(() => {
+    if (!categories) return [];
+    const known = new Set(categories.map((c) => c.slug));
+    return [...counts.entries()]
+      .filter(([slug]) => !known.has(slug))
+      .sort((a, b) => b[1] - a[1]);
+  }, [categories, counts]);
+
   /** 이미 쓰이고 있는 팔레트 — 고르지 못하게 막지는 않고 표시만 한다 */
   const usedPalettes = useMemo(() => {
     const used = new Map<string, string>();
@@ -343,8 +358,42 @@ export default function AdminCategoriesPage() {
         </Panel>
       )}
 
+      {orphans.length > 0 && (
+        <div className="mt-6 rounded-xl border border-ink-dim p-4">
+          <p className="text-sm font-bold">없는 카테고리를 가리키는 글이 있습니다</p>
+          <p className={hintClass}>
+            아래 slug 로 카테고리를 만들거나, 글을 열어 다른 카테고리로 바꾸세요. 그때까지 이
+            글들은 사이드바 어디에도 잡히지 않습니다.
+          </p>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {orphans.map(([slug, count]) => (
+              <li
+                key={slug}
+                className="rounded-full border border-line px-2.5 py-1 text-[11px]"
+              >
+                <span className="font-mono">{slug}</span>
+                <span className="ml-1.5 text-ink-dim">글 {count}개</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {!categories && !error && (
         <p className="mt-8 text-sm text-ink-dim">불러오는 중…</p>
+      )}
+
+      {categories?.length === 0 && !editing && (
+        <div className="mt-8 rounded-xl border border-dashed border-line px-5 py-16 text-center">
+          <p className="text-sm font-semibold">아직 카테고리가 없습니다</p>
+          <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-ink-dim">
+            기본값은 없습니다 — 여기서 만드는 것이 전부입니다. 글의 성격을 나누는 축이므로
+            서너 개로 시작해 글이 쌓이는 대로 늘리는 편이 낫습니다.
+          </p>
+          <button type="button" className={`${btnSecondary} mt-5`} onClick={startCreate}>
+            첫 카테고리 만들기
+          </button>
+        </div>
       )}
 
       {categories && (

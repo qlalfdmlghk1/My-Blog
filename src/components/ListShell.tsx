@@ -13,11 +13,14 @@ import type { CategoryNode } from '@/lib/posts';
  */
 export function ListShell({
   categories,
+  total,
   activeCategory,
   activeTag,
   children,
 }: {
   categories: CategoryNode[];
+  /** 발행된 글 전체 수 — 사이드바의 "전체" 줄에 쓰인다 */
+  total: number;
   activeCategory?: string;
   activeTag?: string;
   children: React.ReactNode;
@@ -31,6 +34,7 @@ export function ListShell({
       </main>
       <SiteSidebar
         categories={categories}
+        total={total}
         activeCategory={activeCategory}
         activeTag={activeTag}
       />

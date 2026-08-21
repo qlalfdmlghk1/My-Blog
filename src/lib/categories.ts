@@ -1,26 +1,22 @@
-import type { Category } from '@/types/category';
-
 /**
  * 카테고리 — 색 있음 · 글 1개당 정확히 1개 · **관리 화면에서 만든다**
  *
- * v1 에서는 이 파일의 배열이 정본이었다. 지금은 Firestore `categories` 컬렉션이
- * 정본이고, 여기 남은 건 처음 한 번 심는 기본값과 이름 판정 유틸뿐이다.
+ * 이 파일에는 카테고리 목록이 없다. 정본은 Firestore `categories` 컬렉션이고,
+ * 여기에는 이름 판정과 정규화 유틸만 둔다.
  * 읽기는 `lib/categories.server.ts`(서버) · `lib/categories.client.ts`(관리 화면).
  *
- * 왜 스택 이름이 아니라 주제인가: 스택별로 쪼개면 글이 흩어져 아무것도
- * 증명되지 않는다. 주제로 묶어야 '성능' 카테고리에 글이 축적되고
- * 그 자체가 포지션 증명이 된다. 카테고리를 늘릴 때 참고할 기준이다.
+ * 코드에 기본 목록을 두지 않는 이유: 어딘가에 6개를 적어두면 그게 폴백이 되고,
+ * 관리 화면에서 전부 지워도 되살아나 "처음부터 내가 짠다"가 불가능해진다.
+ * 시작할 때 쓸 예시 6개는 `scripts/seed-categories.mjs` 에만 있고, 그 스크립트는
+ * 선택 사항이다.
+ *
+ * 카테고리를 무엇으로 나눌지의 기준: 스택 이름이 아니라 주제로 묶는다.
+ * 스택별로 쪼개면 글이 흩어져 아무것도 증명되지 않는다.
  *
  * 색 값은 여기 없다 — `lib/palette.ts` 의 슬롯 ID 만 참조한다.
  */
-export const DEFAULT_CATEGORIES: readonly Category[] = [
-  { slug: 'performance', name: '성능', hint: '대표 카테고리', palette: 'coral', order: 0 },
-  { slug: 'frontend', name: '프론트엔드', hint: '구현 · 브라우저 API', palette: 'blue', order: 1 },
-  { slug: 'architecture', name: '아키텍처', hint: '구조 · 기술 선택 근거', palette: 'purple', order: 2 },
-  { slug: 'troubleshooting', name: '트러블슈팅', hint: '실제로 막혔던 문제', palette: 'amber', order: 3 },
-  { slug: 'devenv', name: '개발 환경', hint: 'Claude Code · 빌드 · 배포', palette: 'teal', order: 4 },
-  { slug: 'retrospective', name: '회고', hint: '프로젝트 마무리', palette: 'pink', order: 5 },
-];
+
+import type { Category } from '@/types/category';
 
 /**
  * 일반 태그 — 색 없음(회색).

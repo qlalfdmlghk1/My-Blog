@@ -156,15 +156,17 @@ npm run rules:deploy
 
 색인 배포를 빠뜨리면 글을 넣는 순간 목록 쿼리가 `FAILED_PRECONDITION`으로 실패한다. `getPublishedPosts()`(status + publishedAt)와 `getPostsByTag()`(status + tags + publishedAt)가 복합 색인을 요구하기 때문이다 — 정의는 `firestore.indexes.json`에 있다. 색인 생성은 몇 분 걸린다.
 
-### 기본 카테고리 심기
+### 카테고리 만들기
 
-카테고리는 Firestore에 있다. 처음 한 번만 기본 6개를 심는다.
+카테고리는 Firestore에 있고 **코드에 기본값이 없다.** 배포 직후에는 0개로 시작하며, `/admin/categories`에서 직접 만든다.
+
+v1의 여섯 개(성능·프론트엔드·아키텍처·트러블슈팅·개발 환경·회고)로 시작하고 싶으면 예시를 심는 스크립트가 있다. **선택 사항이다.**
 
 ```bash
 npm run categories:seed
 ```
 
-이미 있는 문서는 건드리지 않는다 (관리 화면에서 고쳐둔 값이 되돌아가지 않게). 이후에는 `/admin/categories`에서 만들고 고친다.
+목록은 `scripts/seed-categories.mjs`에만 있으니 자기 분류로 고쳐서 심어도 된다. 이미 있는 문서는 건드리지 않는다 (관리 화면에서 고쳐둔 값이 되돌아가지 않게).
 
 ### 9. 확인
 
@@ -250,7 +252,8 @@ Shiki는 `defaultColor: false` + 2개 테마로 출력해 `--shiki-light`/`--shi
 - **카테고리** — 색 있음 · 글 1개당 1개. **관리 화면(`/admin/categories`)에서 만든다.** 정본은 Firestore `categories` 컬렉션이고 문서 ID 가 곧 slug다. 색은 [src/lib/palette.ts](src/lib/palette.ts)의 슬롯 12개 중에서 고르며, 카테고리 문서에는 hex가 아니라 슬롯 ID만 저장한다 — 슬롯마다 라이트/다크 2벌과 대비 4.5:1이 이미 맞춰져 있어 어떤 조합을 골라도 화면이 깨지지 않는다.
   - slug는 만들 때 한 번 정하고 바꾸지 않는다. 바꾸면 발행된 카테고리 URL과 글의 참조가 함께 끊긴다.
   - 글이 남아 있는 카테고리는 삭제할 수 없다 (관리 화면이 버튼을 잠근다).
-  - 컬렉션이 비어 있으면 서버가 기본 6개로 떨어진다 — 배포 직후 사이트가 빈 껍데기로 보이지 않게 하기 위한 것이다.
+  - **코드에 기본 카테고리가 없다.** 폴백을 두면 관리 화면에서 전부 지워도 되살아나 "처음부터 내가 짠다"가 불가능해진다. 비어 있으면 비어 있는 대로 두고 화면이 빈 상태를 안내한다.
+  - 존재하지 않는 카테고리를 참조하는 글이 있으면 `/admin/categories`가 그 slug와 글 수를 알려준다 — 사이드바에서는 안 보이고 목록에는 보여서 놓치기 쉽다.
   - 화면용 CSS 변수(`--pal-{slot}-{bg,fg}`)는 [category-css.ts](src/lib/category-css.ts)가 팔레트에서 생성해 `layout.tsx`가 `<style>`로 주입한다. 카테고리별이 아니라 **슬롯별**로 까는 것이 요점이다 — 슬롯 목록이 정적이라 이 문자열이 빌드 시점에 확정되고, 루트 레이아웃이 Firestore 조회에 엮이지 않는다
   - OG 이미지는 satori가 CSS 변수를 해석하지 못하므로 같은 값을 TS에서 직접 읽는다 (`paletteLightColor()`)
   - 처음에는 `globals.css`에도 hex를 적어뒀지만, OG 이미지가 같은 값을 필요로 하면서 정의처가 둘이 됐다. 언젠가 어긋날 중복이라 CSS를 파생시키는 쪽으로 바꿨다

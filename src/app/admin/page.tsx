@@ -17,16 +17,24 @@ export default function AdminPage() {
   // 배지 이름·색은 카테고리 문서에 있다 — 카드마다 조회하지 않도록 한 번 읽어 맵으로 넘긴다
   const [categories, setCategories] = useState<Map<string, Category>>(new Map());
   const [error, setError] = useState<string | null>(null);
+  /** 카테고리만 실패한 경우 — 글 목록은 살아 있으므로 경고로만 알린다 */
+  const [categoryError, setCategoryError] = useState<string | null>(null);
 
+  /**
+   * 둘을 Promise.all 로 묶지 않는다 — 한쪽이 실패하면 다른 쪽 결과까지 버려진다.
+   * 실제로 카테고리 읽기 권한만 막혔을 때 글 목록이 통째로 사라지는 일이 있었다.
+   * 글이 이 화면의 본체이므로 카테고리는 없으면 없는 대로 그린다(배지가 무채색이 된다).
+   */
   useEffect(() => {
-    Promise.all([listAllPosts(), listCategories()])
-      .then(([found, cats]) => {
-        setPosts(found);
-        setCategories(new Map(cats.map((c) => [c.slug, c])));
-      })
+    listAllPosts()
+      .then(setPosts)
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : '목록을 불러오지 못했습니다.'),
       );
+
+    listCategories()
+      .then((cats) => setCategories(new Map(cats.map((c) => [c.slug, c]))))
+      .catch((err: unknown) => setCategoryError(describeCategoryFailure(err)));
   }, []);
 
   const drafts = posts?.filter((p) => p.status === 'draft') ?? [];
@@ -68,6 +76,12 @@ export default function AdminPage() {
         </p>
       )}
 
+      {categoryError && (
+        <p role="status" className="mt-6 rounded-lg border border-ink-dim px-3.5 py-3 text-sm leading-relaxed">
+          {categoryError}
+        </p>
+      )}
+
       {!posts && !error && <SkeletonList />}
 
       {posts?.length === 0 && (
@@ -91,6 +105,19 @@ export default function AdminPage() {
       )}
     </div>
   );
+}
+
+/**
+ * 카테고리 읽기 실패는 원인이 사실상 하나다 — 보안 규칙에 `categories` 컬렉션이
+ * 아직 없어서 기본 차단 규칙에 걸리는 것. Firebase 원문만 띄우면
+ * "Missing or insufficient permissions." 로 끝나 무엇을 해야 할지 알 수 없다.
+ */
+function describeCategoryFailure(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/permission/i.test(message)) {
+    return '카테고리를 읽지 못했습니다 — 보안 규칙이 아직 배포되지 않은 것 같습니다. npm run rules:deploy 를 실행하세요. (글 목록은 정상입니다)';
+  }
+  return `카테고리를 읽지 못했습니다: ${message}`;
 }
 
 function Stat({ label, value }: { label: string; value?: number }) {

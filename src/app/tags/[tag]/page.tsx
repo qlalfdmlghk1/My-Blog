@@ -41,7 +41,7 @@ export default async function TagPage({ params }: Params) {
   const posts = filterPostsByTag(all, decoded);
 
   return (
-    <ListShell categories={categories} activeTag={decoded}>
+    <ListShell categories={categories} total={all.length} activeTag={decoded}>
       <header className="border-b border-line pb-6">
         <h1 className="text-2xl font-bold tracking-tight">#{decoded}</h1>
         <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>

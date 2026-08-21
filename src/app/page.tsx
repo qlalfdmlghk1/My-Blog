@@ -14,7 +14,7 @@ export default async function HomePage() {
   const byslug = new Map(categories.map((c) => [c.slug, c]));
 
   return (
-    <ListShell categories={categories}>
+    <ListShell categories={categories} total={posts.length}>
       <SiteIntro />
 
       {posts.length === 0 ? (

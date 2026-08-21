@@ -32,11 +32,17 @@ export async function loadOgFont(): Promise<Buffer> {
   return fontCache;
 }
 
-/** 무채색 90% — 색은 카테고리 배지에만 등장한다 (화면과 같은 규칙) */
-const INK = '#1a1a18';
-const INK_DIM = '#6b6a63';
+/**
+ * 무채색 90% — 색은 카테고리 배지에만 등장한다 (화면과 같은 규칙)
+ *
+ * satori 는 CSS 변수를 해석하지 못해 값을 여기 다시 적는다.
+ * globals.css `:root` 의 라이트 뉴트럴과 같은 값이어야 한다 — 한쪽만 바꾸면
+ * OG 카드만 옛 색으로 남는다.
+ */
+const INK = '#16181d';
+const INK_DIM = '#5f6672';
 const BG = '#ffffff';
-const LINE = '#e6e4dd';
+const LINE = '#e1e4ea';
 
 export function OgCard({
   title,

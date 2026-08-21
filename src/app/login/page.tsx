@@ -52,7 +52,7 @@ export default function LoginPage() {
   const field = 'w-full rounded-md border border-line bg-bg px-3 py-2 text-sm';
 
   return (
-    <main className="mx-auto max-w-sm px-5 py-24">
+    <main id="main" className="mx-auto max-w-sm px-5 py-24">
       <h1 className="text-lg font-bold tracking-tight">관리자 로그인</h1>
 
       {!configured ? (

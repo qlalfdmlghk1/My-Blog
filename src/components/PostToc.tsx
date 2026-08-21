@@ -11,8 +11,8 @@ import type { TocEntry } from '@/lib/markdown';
  * 판정 기준은 hasToc() 로 내보내 호출부가 그리드 컬럼과 같은 값을 쓰게 한다
  * (여기서만 null 을 반환하면 빈 컬럼이 남아 본문이 한쪽으로 치우친다).
  *
- * xl 미만에서는 그리드가 1열이라 목차가 본문 맨 아래로 밀린다. 다 읽고 나서
- * 나오는 목차는 길잡이 구실을 못 하므로 그 폭에서는 감춘다.
+ * 목차는 본문 옆자리가 생기는 xl 이상에서만 그린다. 그 아래 폭에서는 본문 뒤에
+ * 붙어 다 읽고 나서야 나오므로 길잡이 구실을 못 한다.
  */
 export function hasToc(toc: TocEntry[]): boolean {
   return toc.length >= 3;

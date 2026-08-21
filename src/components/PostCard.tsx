@@ -16,7 +16,7 @@ function formatDate(iso: string | null): string {
 
 export function PostCard({ post }: { post: PostSummary }) {
   return (
-    <article className="border-b border-line py-7 first:pt-0">
+    <article className="border-b border-line py-8 first:pt-0">
       <div className="mb-2.5 flex items-center gap-2.5">
         <CategoryBadge slug={post.category} size="sm" />
         <time
@@ -27,14 +27,14 @@ export function PostCard({ post }: { post: PostSummary }) {
         </time>
       </div>
 
-      <h2 className="text-lg font-bold leading-snug tracking-tight">
+      <h2 className="text-[19px] font-bold leading-snug tracking-tight sm:text-xl">
         <Link href={`/posts/${post.slug}`} className="hover:underline">
           {post.title}
         </Link>
       </h2>
 
       {post.excerpt && (
-        <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-ink-dim">
+        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-dim">
           {post.excerpt}
         </p>
       )}

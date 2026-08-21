@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
+import { ListShell } from '@/components/ListShell';
 import { PostCard } from '@/components/PostCard';
-import { TagFilter } from '@/components/TagFilter';
-import { getAllTags, getPostsByTag } from '@/lib/posts';
+import { getAllTags, getCategoryCounts, getPostsByTag } from '@/lib/posts';
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -27,27 +27,30 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function TagPage({ params }: Params) {
   const { tag } = await params;
   const decoded = decodeURIComponent(tag);
-  const [posts, tags] = await Promise.all([getPostsByTag(decoded), getAllTags()]);
+  const [posts, tags, categories] = await Promise.all([
+    getPostsByTag(decoded),
+    getAllTags(),
+    getCategoryCounts(),
+  ]);
 
   return (
-    <main className="mx-auto max-w-shell px-5 py-10">
-      <TagFilter tags={tags} activeTag={decoded} />
-
-      <h1 className="mt-8 text-sm text-ink-dim">
-        <span className="font-semibold text-ink">#{decoded}</span> · {posts.length}개
-      </h1>
+    <ListShell categories={categories} tags={tags} activeTag={decoded}>
+      <header className="border-b border-line pb-6">
+        <h1 className="text-2xl font-bold tracking-tight">#{decoded}</h1>
+        <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>
+      </header>
 
       {posts.length === 0 ? (
         <p className="py-20 text-center text-sm text-ink-dim">
           이 태그에 해당하는 글이 없습니다.
         </p>
       ) : (
-        <div className="mt-4">
+        <div className="mt-8">
           {posts.map((p) => (
             <PostCard key={p.id} post={p} />
           ))}
         </div>
       )}
-    </main>
+    </ListShell>
   );
 }

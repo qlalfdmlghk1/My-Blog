@@ -117,7 +117,11 @@ export async function uploadImage(file: File): Promise<string> {
  * 쓰기는 클라이언트에서 일어나므로 서버가 호출자를 신뢰할 수 없다 →
  * Firebase ID 토큰을 보내고 서버가 verifyIdToken + UID 대조로 검증한다.
  */
-export async function revalidatePost(slug: string, tags: string[]): Promise<void> {
+export async function revalidatePost(
+  slug: string,
+  tags: string[],
+  categories: string[],
+): Promise<void> {
   const user = auth().currentUser;
   if (!user) throw new Error('로그인이 필요합니다.');
   const res = await fetch('/api/revalidate', {
@@ -126,7 +130,7 @@ export async function revalidatePost(slug: string, tags: string[]): Promise<void
       'Content-Type': 'application/json',
       Authorization: `Bearer ${await user.getIdToken()}`,
     },
-    body: JSON.stringify({ slug, tags }),
+    body: JSON.stringify({ slug, tags, categories }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;

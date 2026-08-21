@@ -1,18 +1,22 @@
+import { ListShell } from '@/components/ListShell';
 import { PostCard } from '@/components/PostCard';
-import { TagFilter } from '@/components/TagFilter';
-import { getAllTags, getPublishedPosts } from '@/lib/posts';
+import { SiteIntro } from '@/components/SiteIntro';
+import { getAllTags, getCategoryCounts, getPublishedPosts } from '@/lib/posts';
 
 /** ISR — 평소에는 생성된 정적 HTML 을 서빙하고, 발행 시 revalidatePath 로 갱신 */
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  // 태그는 이 목록에서 집계하므로 Firestore 를 한 번만 읽는다
+  // 태그·카테고리 모두 이 목록에서 집계하므로 Firestore 를 한 번만 읽는다
   const posts = await getPublishedPosts();
-  const tags = await getAllTags(posts);
+  const [tags, categories] = await Promise.all([
+    getAllTags(posts),
+    getCategoryCounts(posts),
+  ]);
 
   return (
-    <main className="mx-auto max-w-shell px-5 py-10">
-      <TagFilter tags={tags} />
+    <ListShell categories={categories} tags={tags}>
+      <SiteIntro />
 
       {posts.length === 0 ? (
         <p className="py-20 text-center text-sm text-ink-dim">
@@ -30,6 +34,6 @@ export default async function HomePage() {
           ))}
         </div>
       )}
-    </main>
+    </ListShell>
   );
 }

@@ -55,13 +55,20 @@ export async function renderMarkdown(markdown: string): Promise<RenderedMarkdown
   const highlighted = new Map<string, string>();
 
   const toc: TocEntry[] = [];
-  /** 같은 제목이 두 번 나오면 id 가 겹쳐 목차 링크가 첫 번째로만 간다 */
-  const usedIds = new Map<string, number>();
+  /**
+   * 같은 제목이 두 번 나오면 id 가 겹쳐 목차 링크가 첫 번째로만 간다.
+   *
+   * 등장 횟수만 세면 부족하다 — "정리"가 두 번 나와 `정리-2`를 만든 뒤
+   * 본문에 "정리 2"라는 별개 제목이 있으면 그것도 `정리-2`가 되어 다시 겹친다.
+   * 실제로 확정한 id 를 모아두고 비어 있는 번호를 찾는다.
+   */
+  const usedIds = new Set<string>();
   function uniqueId(text: string): string {
     const base = slugify(text) || 'section';
-    const seen = usedIds.get(base) ?? 0;
-    usedIds.set(base, seen + 1);
-    return seen === 0 ? base : `${base}-${seen + 1}`;
+    let id = base;
+    for (let n = 2; usedIds.has(id); n += 1) id = `${base}-${n}`;
+    usedIds.add(id);
+    return id;
   }
 
   const md = new Marked({

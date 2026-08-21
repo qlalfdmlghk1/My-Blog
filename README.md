@@ -51,7 +51,8 @@ src/
 │   ├── posts/[slug]/opengraph-image.tsx   글별 OG (제목·카테고리·태그)
 │   └── globals.css               무채색 스케일 + 본문 타이포 (카테고리 색은 여기 없음)
 ├── components/
-│   ├── CategoryBadge · TagChip · PostCard · TagFilter
+│   ├── CategoryBadge · TagChip · PostCard
+│   ├── ListShell · SiteSidebar · SiteIntro · PostToc
 │   ├── SiteHeader · SiteFooter · ThemeToggle
 │   └── admin/AuthGuard · PostEditor
 ├── lib/

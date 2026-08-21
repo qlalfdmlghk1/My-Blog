@@ -201,6 +201,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  /* 목차 앵커 이동도 즉시 점프로 — 전정기관이 민감한 사용자에게 스크롤 애니메이션은
+     transition 만큼이나 부담이다 (WCAG 2.3.3) */
+  html {
+    scroll-behavior: auto !important;
+  }
   *,
   *::before,
   *::after {

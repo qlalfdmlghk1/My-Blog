@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
-import { isCategorySlug } from '@/lib/categories';
+import { CATEGORY_SLUGS } from '@/lib/categories';
 
 /**
  * 발행 / 수정 / 삭제 후 해당 정적 경로만 재생성한다.
@@ -39,7 +39,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
-  let body: { slug?: unknown; tags?: unknown; categories?: unknown };
+  let body: { slug?: unknown; tags?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -51,14 +51,16 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const slug = typeof body.slug === 'string' ? body.slug : '';
   const tags = strings(body.tags);
-  // 알 수 없는 slug 로 경로를 만들지 않는다 — 카테고리는 6개 고정이다
-  const categories = strings(body.categories).filter(isCategorySlug);
 
   // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다
   const paths = ['/', '/rss.xml', '/sitemap.xml'];
   if (slug) paths.push(`/posts/${slug}`);
   for (const tag of tags) paths.push(`/tags/${encodeURIComponent(tag)}`);
-  for (const category of categories) paths.push(`/categories/${category}`);
+
+  // 카테고리는 글이 속한 것만 갱신하면 부족하다 — 사이드바가 여섯 개의 글 수를
+  // 모든 목록 화면에 함께 렌더하므로, 한 편만 발행해도 나머지 다섯 화면의 숫자가
+  // 낡는다. 6개 고정이라 전량 재생성이 상수 비용이므로 그냥 전부 돌린다.
+  for (const category of CATEGORY_SLUGS) paths.push(`/categories/${category}`);
 
   for (const path of paths) revalidatePath(path);
 

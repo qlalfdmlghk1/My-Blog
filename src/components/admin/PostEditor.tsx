@@ -152,12 +152,9 @@ export function PostEditor({ existing }: { existing?: Post }) {
       }
 
       // draft 로 되돌린 경우에도 기존 정적 페이지를 걷어내야 하므로 항상 재생성한다.
-      // 카테고리를 바꿔 저장하면 옮겨온 쪽과 떠나온 쪽 목록이 둘 다 낡으므로 함께 넘긴다.
+      // 카테고리는 서버가 6개를 전부 돌리므로 여기서 넘기지 않는다.
       const affected = [...new Set([...tags, ...(existing?.tags ?? [])])];
-      const affectedCategories = [
-        ...new Set([draft.category, ...(existing ? [existing.category] : [])]),
-      ];
-      await revalidatePost(draft.slug, affected, affectedCategories);
+      await revalidatePost(draft.slug, affected);
 
       router.push('/admin');
       router.refresh();
@@ -175,7 +172,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
     setError(null);
     try {
       await deletePost(existing.id);
-      await revalidatePost(existing.slug, existing.tags, [existing.category]);
+      await revalidatePost(existing.slug, existing.tags);
       router.push('/admin');
       router.refresh();
     } catch (err) {

@@ -33,7 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         {/*
           본문 · 제목: 티머니 둥근바람. 둥근 획이 이 블로그의 인상을 만든다.
-          woff2 838KB 로 가볍지 않으므로 font-display:swap 으로 렌더를 막지 않는다.
+          woff2 838KiB(Regular 388 + ExtraBold 450)로 가볍지 않으므로
+          font-display:swap 으로 렌더를 막지 않는다.
+          웨이트는 400·800 두 벌뿐이라 font-bold(700)는 800 으로 매칭된다 —
+          제목이 쓰는 ExtraBold 는 preload 대상이 아니라 늦게 스왑될 수 있다.
           (Lighthouse 실측 후 부담되면 제목에만 남기고 본문은 Pretendard 로 되돌린다)
 
           Pretendard 는 폴백으로 남긴다 — 동적 서브셋이라 둥근바람이 덮는 글자에는

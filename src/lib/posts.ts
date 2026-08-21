@@ -114,25 +114,12 @@ export async function getPublishedSlugs(): Promise<string[]> {
   return posts.map((p) => p.slug);
 }
 
-export async function getPostsByTag(tag: string): Promise<PostSummary[]> {
-  if (!hasAdminCredentials()) {
-    warnUnconfigured('getPostsByTag');
-    return [];
-  }
-  return safeQuery(
-    'getPostsByTag',
-    async () => {
-      const snap = await adminDb()
-        .collection(COLLECTION)
-        .where('status', '==', 'published')
-        .where('tags', 'array-contains', tag)
-        .orderBy('publishedAt', 'desc')
-        .get();
-      return snap.docs.map((d) => strip(normalize(d.id, d.data())));
-    },
-    [],
-  );
-}
+/*
+ * getPostsByTag() 는 제거했다 — 태그 목록도 카테고리와 같이 getPublishedPosts() 를
+ * 메모리에서 거른다. 조회 두 벌을 유지하면 사이드바 집계(메모리)와 목록(쿼리)의
+ * 출처가 갈려, 색인이 없을 때 "사이드바엔 3개, 본문엔 0개" 같은 모순이 생긴다.
+ * firestore.indexes.json 의 tags 복합 색인은 지금 쓰이지 않는다 (정리는 후속).
+ */
 
 export interface TagCount {
   tag: string;
@@ -173,8 +160,20 @@ export async function getCategoryCounts(known?: PostSummary[]): Promise<Category
   return CATEGORY_SLUGS.map((slug) => ({ slug, count: counts.get(slug) ?? 0 }));
 }
 
-/** 카테고리별 글 목록 — 위와 같은 이유로 메모리에서 거른다 */
-export async function getPostsByCategory(slug: CategorySlug): Promise<PostSummary[]> {
-  const posts = await getPublishedPosts();
+/**
+ * 카테고리별 글 목록 — 위와 같은 이유로 메모리에서 거른다.
+ * getAllTags·getCategoryCounts 와 같은 known 파라미터를 받는다 — 호출부가 이미 읽은
+ * 목록을 넘길 수 있어야 한 화면에서 같은 컬렉션을 두 번 읽지 않는다.
+ */
+export async function getPostsByCategory(
+  slug: CategorySlug,
+  known?: PostSummary[],
+): Promise<PostSummary[]> {
+  const posts = known ?? (await getPublishedPosts());
   return posts.filter((p) => p.category === slug);
+}
+
+/** 태그별 글 목록의 메모리 판 — 사이드바 집계와 같은 목록을 보게 해 숫자가 어긋나지 않는다 */
+export function filterPostsByTag(posts: PostSummary[], tag: string): PostSummary[] {
+  return posts.filter((p) => p.tags.includes(tag));
 }

@@ -51,7 +51,7 @@ export default async function CategoryPage({ params }: Params) {
   if (!category) notFound();
 
   return (
-    <ListShell categories={categories} activeCategory={category.slug}>
+    <ListShell categories={categories} total={all.length} activeCategory={category.slug}>
       <header className="border-b border-line pb-6">
         <h1 className="text-2xl font-bold tracking-tight">{category.name}</h1>
         <p className="mt-2 text-sm text-ink-dim">

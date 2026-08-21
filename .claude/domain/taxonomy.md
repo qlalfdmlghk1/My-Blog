@@ -32,7 +32,7 @@ _Avoid_: "공개/비공개", "게시/미게시". 코드는 `status: 'published' 
 
 ## Naming decisions
 
-- 카테고리의 **정본은 Firestore `categories` 컬렉션**이고, 문서 ID 가 곧 slug 다. `src/lib/categories.ts` 에 남은 배열은 컬렉션이 비었을 때 쓰는 기본값일 뿐이다.
+- 카테고리의 **정본은 Firestore `categories` 컬렉션**이고, 문서 ID 가 곧 slug 다. 코드에는 기본 목록이 없다 — 폴백을 두면 관리 화면에서 전부 지워도 되살아난다. 시작용 예시 6개는 `scripts/seed-categories.mjs` 에만 있고 그 스크립트는 선택 사항이다.
 - slug 는 만들 때 한 번 정하고 이후 바꾸지 않는다 — 바꾸면 발행된 카테고리 URL 과 글의 `category` 참조가 함께 끊긴다.
 - 색 값의 **단일 진실 공급원은 `src/lib/palette.ts`** 다. 화면 CSS 변수(`--pal-{slot}-*`)와 OG 이미지 색이 모두 이 값에서 파생된다.
 - **카테고리 이름을 태그로 쓰지 않는다.** `프론트엔드` `성능` 은 카테고리가 이미 말하고 있어, 태그로 두면 두 축이 같은 것을 가리켜 태그가 아무것도 구분하지 못한다. 판정 재료는 `categoryWordSet()`, 화면 경고는 `PostEditor`.

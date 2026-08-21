@@ -21,15 +21,20 @@ import type { CategoryNode, TagCount } from '@/lib/posts';
  */
 export function SiteSidebar({
   categories,
+  total,
   activeCategory,
   activeTag,
 }: {
   categories: CategoryNode[];
+  /**
+   * 발행된 글 전체 수. 카테고리 합계로 구하지 않는다 —
+   * 삭제된 카테고리를 참조하는 글은 어느 카테고리에도 안 잡혀서,
+   * 합계로 구하면 목록에는 글이 보이는데 "전체 0" 이 뜬다.
+   */
+  total: number;
   activeCategory?: string;
   activeTag?: string;
 }) {
-  const total = categories.reduce((sum, c) => sum + c.count, 0);
-
   return (
     <aside className="lg:sticky lg:top-20 lg:order-1 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto">
       <nav aria-label="분류">
@@ -46,6 +51,12 @@ export function SiteSidebar({
               active={!activeCategory && !activeTag}
             />
           </li>
+
+          {categories.length === 0 && (
+            <li className="px-2 py-1.5 text-xs leading-relaxed text-ink-dim">
+              아직 카테고리가 없습니다.
+            </li>
+          )}
 
           {categories.map((c) => {
             const expanded = activeCategory === c.slug;

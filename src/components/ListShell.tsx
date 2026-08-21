@@ -25,14 +25,16 @@ export function ListShell({
   children: React.ReactNode;
 }) {
   return (
+    // 본문을 DOM 에서 먼저 둔다 — 사이드바의 h2 가 본문 h1 보다 앞서면 제목 순서가
+    // 역전돼 접근성 검사에 걸린다. 좌측 배치는 order 로만 되돌린다.
     <div className="mx-auto grid max-w-shell gap-8 px-5 py-10 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-12">
+      <main className="min-w-0 lg:order-2">{children}</main>
       <SiteSidebar
         categories={categories}
         tags={tags}
         activeCategory={activeCategory}
         activeTag={activeTag}
       />
-      <div className="min-w-0">{children}</div>
     </div>
   );
 }

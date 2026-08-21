@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
-import { PostToc } from '@/components/PostToc';
+import { hasToc, PostToc } from '@/components/PostToc';
 import { TagChip } from '@/components/TagChip';
 import { renderMarkdown } from '@/lib/markdown';
 import { getPostBySlug, getPublishedSlugs } from '@/lib/posts';
@@ -57,11 +57,20 @@ export default async function PostPage({ params }: Params) {
   if (!post) notFound();
 
   const { html, toc } = await renderMarkdown(post.content);
+  // 목차를 그릴지 여기서 정한다 — 컬럼 구성과 목차 렌더가 같은 값을 봐야
+  // 목차 없는 글에서 빈 컬럼이 남아 본문이 왼쪽으로 밀리는 일이 없다.
+  const withToc = hasToc(toc);
 
   return (
     // 본문은 읽기 좋은 폭(prose)을 유지하고, 목차는 넓은 화면에서만 옆에 붙인다.
     // 목차를 위해 본문 폭을 늘리면 한 줄이 길어져 오히려 읽기 나빠진다.
-    <main className="mx-auto grid max-w-shell gap-10 px-5 py-12 xl:grid-cols-[minmax(0,44rem)_13rem] xl:justify-center">
+    <main
+      className={
+        withToc
+          ? 'mx-auto grid max-w-shell gap-10 px-5 py-12 xl:grid-cols-[minmax(0,44rem)_13rem] xl:justify-center'
+          : 'mx-auto max-w-prose px-5 py-12'
+      }
+    >
       <div className="min-w-0">
       <header className="border-b border-line pb-7">
         <div className="mb-3 flex items-center gap-2.5">

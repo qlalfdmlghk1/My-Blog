@@ -2,7 +2,12 @@ import type { Metadata } from 'next';
 
 import { ListShell } from '@/components/ListShell';
 import { PostCard } from '@/components/PostCard';
-import { getAllTags, getCategoryCounts, getPostsByTag } from '@/lib/posts';
+import {
+  filterPostsByTag,
+  getAllTags,
+  getCategoryCounts,
+  getPublishedPosts,
+} from '@/lib/posts';
 
 export const revalidate = 3600;
 export const dynamicParams = true;
@@ -27,11 +32,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 export default async function TagPage({ params }: Params) {
   const { tag } = await params;
   const decoded = decodeURIComponent(tag);
-  const [posts, tags, categories] = await Promise.all([
-    getPostsByTag(decoded),
-    getAllTags(),
-    getCategoryCounts(),
-  ]);
+  // 목록·사이드바 집계가 같은 목록을 보게 한다 — 출처가 갈리면 사이드바에는
+  // "#태그 3", 본문에는 "0개"가 동시에 뜨는 상태가 생긴다. (Firestore 조회 1회)
+  const all = await getPublishedPosts();
+  const [tags, categories] = await Promise.all([getAllTags(all), getCategoryCounts(all)]);
+  const posts = filterPostsByTag(all, decoded);
 
   return (
     <ListShell categories={categories} tags={tags} activeTag={decoded}>

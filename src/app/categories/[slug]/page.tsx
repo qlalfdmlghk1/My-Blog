@@ -32,12 +32,13 @@ export default async function CategoryPage({ params }: Params) {
   const { slug } = await params;
   if (!isCategorySlug(slug)) notFound();
 
-  // 목록을 한 번 읽어 집계·필터에 함께 쓴다 (Firestore 조회 1회)
+  // 목록을 한 번 읽어 집계·필터에 함께 쓴다 (Firestore 조회 1회).
+  // 세 함수 모두 읽어둔 목록을 받으므로 여기서 추가 조회가 일어나지 않는다.
   const all = await getPublishedPosts();
   const [tags, categories, posts] = await Promise.all([
     getAllTags(all),
     getCategoryCounts(all),
-    getPostsByCategory(slug),
+    getPostsByCategory(slug, all),
   ]);
   const category = getCategory(slug);
 

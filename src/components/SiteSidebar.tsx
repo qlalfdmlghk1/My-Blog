@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { TagChip } from '@/components/TagChip';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import type { CategoryCount, TagCount } from '@/lib/posts';
-import { SITE } from '@/lib/site';
 
 /**
  * 좌측 분류 내비게이션.
@@ -30,12 +29,8 @@ export function SiteSidebar({
   const total = categories.reduce((sum, c) => sum + c.count, 0);
 
   return (
-    <aside className="lg:sticky lg:top-8 lg:self-start">
-      <p className="hidden text-[13px] leading-relaxed text-ink-dim lg:block">
-        {SITE.description}
-      </p>
-
-      <nav aria-label="카테고리" className="mt-0 lg:mt-6">
+    <aside className="lg:sticky lg:top-8 lg:order-1 lg:max-h-[calc(100dvh-4rem)] lg:self-start lg:overflow-y-auto">
+      <nav aria-label="카테고리">
         <h2 className="mb-2 text-[11px] font-bold uppercase tracking-wider text-ink-dim">
           카테고리
         </h2>
@@ -48,13 +43,17 @@ export function SiteSidebar({
             const count = countOf.get(c.slug) ?? 0;
             return (
               <li key={c.slug}>
+                {/* 글이 0편이어도 링크를 건다 — 페이지는 존재하고 빈 상태 문구가 있다.
+                    링크를 끊으면 sitemap 에는 실리는데 사이트 안에서 도달할 수 없고,
+                    발행 직후 사이드바 집계가 낡은 동안 "글이 있는데 못 누르는" 상태가 된다. */}
                 <SidebarRow
-                  href={count > 0 ? `/categories/${c.slug}` : undefined}
+                  href={`/categories/${c.slug}`}
                   label={c.name}
                   count={count}
                   active={activeCategory === c.slug}
                   dotSlug={c.slug}
                   title={c.hint}
+                  muted={count === 0}
                 />
               </li>
             );
@@ -85,8 +84,12 @@ export function SiteSidebar({
 }
 
 /**
- * 한 줄짜리 분류 항목. 글이 0편이면 갈 곳이 없으므로 링크를 걸지 않되
- * 자리는 지킨다 — 6개 고정이라는 사실 자체가 이 블로그의 설계다.
+ * 한 줄짜리 분류 항목. 6개 고정이라는 사실 자체가 이 블로그의 설계이므로
+ * 글이 0편인 카테고리도 자리를 지킨다.
+ *
+ * 비어 있음은 opacity 로 표현하지 않는다 — 45% 를 씌우면 본문 대비가 2.9:1 로
+ * 떨어져 WCGA 4.5:1 을 못 넘는다. 지금은 6개 중 5개가 0편이라 사이드바 대부분이
+ * 그 상태가 된다. 색 토큰(text-ink-dim)으로 낮춰 대비를 지킨다.
  */
 function SidebarRow({
   href,
@@ -95,43 +98,35 @@ function SidebarRow({
   active,
   dotSlug,
   title,
+  muted = false,
 }: {
-  href?: string;
+  href: string;
   label: string;
   count: number;
   active?: boolean;
   dotSlug?: CategorySlug;
   title?: string;
+  muted?: boolean;
 }) {
   const className = [
-    'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
-    active ? 'bg-surface font-bold' : href ? 'hover:bg-surface' : 'opacity-45',
-  ].join(' ');
+    'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-surface',
+    active ? 'bg-surface font-bold' : muted ? 'text-ink-dim' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-  const body = (
-    <>
+  return (
+    <Link href={href} className={className} title={title} aria-current={active ? 'page' : undefined}>
       {dotSlug && (
         <span
           aria-hidden
-          className="size-2 shrink-0 rounded-full"
+          className={`size-2 shrink-0 rounded-full${muted ? ' opacity-50' : ''}`}
           style={{ backgroundColor: `var(--cat-${dotSlug}-fg)` }}
         />
       )}
       <span className="truncate">{label}</span>
       <span className="ml-auto text-xs tabular-nums text-ink-dim">{count}</span>
-    </>
-  );
-
-  if (!href) {
-    return (
-      <span className={className} title={title ? `${title} — 아직 글 없음` : undefined}>
-        {body}
-      </span>
-    );
-  }
-  return (
-    <Link href={href} className={className} title={title} aria-current={active ? 'page' : undefined}>
-      {body}
+      {muted && <span className="sr-only">아직 글 없음</span>}
     </Link>
   );
 }

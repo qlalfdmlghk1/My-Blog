@@ -37,6 +37,7 @@ export default async function TagPage({ params }: Params) {
   // "#태그 3", 본문에는 "0개"가 동시에 뜨는 상태가 생긴다. (Firestore 조회 1회)
   const all = await getPublishedPosts();
   const categories = await getCategoryTree(all);
+  const byslug = new Map(categories.map((c) => [c.slug, c]));
   const posts = filterPostsByTag(all, decoded);
 
   return (
@@ -53,7 +54,7 @@ export default async function TagPage({ params }: Params) {
       ) : (
         <div className="mt-8">
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} />
+            <PostCard key={p.id} post={p} category={byslug.get(p.category)} />
           ))}
         </div>
       )}

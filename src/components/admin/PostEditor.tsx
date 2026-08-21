@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useMemo, useRef, useState, type ClipboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from 'react';
 
 import { TagChip } from '@/components/TagChip';
 import {
@@ -16,7 +16,8 @@ import {
   hintClass,
   labelClass,
 } from '@/components/admin/ui';
-import { CATEGORIES, isCategoryWord, type CategorySlug } from '@/lib/categories';
+import { categoryWordSet, normalizeWord } from '@/lib/categories';
+import { listCategories } from '@/lib/categories.client';
 import { renderPreview } from '@/lib/markdown-preview';
 import {
   createPost,
@@ -27,6 +28,7 @@ import {
   uploadImage,
 } from '@/lib/posts.client';
 import { autoExcerpt, slugify } from '@/lib/slug';
+import type { Category } from '@/types/category';
 import type { Post, PostDraft, PostStatus } from '@/types/post';
 
 /**
@@ -43,12 +45,36 @@ export function PostEditor({ existing }: { existing?: Post }) {
   const [slugEdited, setSlugEdited] = useState(Boolean(existing));
   const [content, setContent] = useState(existing?.content ?? '');
   const [excerpt, setExcerpt] = useState(existing?.excerpt ?? '');
-  const [category, setCategory] = useState<CategorySlug>(existing?.category ?? 'frontend');
+  const [category, setCategory] = useState<string>(existing?.category ?? '');
+
   const [tagInput, setTagInput] = useState(existing?.tags.join(', ') ?? '');
   const [coverImage, setCoverImage] = useState(existing?.coverImage ?? '');
 
   const [busy, setBusy] = useState<null | string>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * 카테고리는 관리 화면에서 만드는 값이라 Firestore 에서 읽어 온다.
+   * 새 글에서 아직 아무것도 안 골랐으면 목록의 첫 항목을 기본값으로 채운다 —
+   * 저장 직전에야 "카테고리를 고르세요"가 뜨는 것보다 낫다.
+   */
+  const [categories, setCategories] = useState<Category[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listCategories()
+      .then((found) => {
+        if (cancelled) return;
+        setCategories(found);
+        setCategory((current) => current || found[0]?.slug || '');
+      })
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : '카테고리를 불러오지 못했습니다.'),
+      );
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const previewHtml = useMemo(() => renderPreview(content), [content]);
   // 발췌문 placeholder 도 본문 전체를 정규식으로 훑으므로 미리보기와 같이 memo 한다
@@ -80,7 +106,11 @@ export function PostEditor({ existing }: { existing?: Post }) {
    * 막지는 않고 알리기만 한다 — 저장을 막으면 규칙을 모르는 상태에서 글이 잠기고,
    * 정작 고쳐야 할 이유는 화면에 안 남는다. 이유를 보여주고 한 번에 지울 수단을 준다.
    */
-  const echoedTags = useMemo(() => tags.filter(isCategoryWord), [tags]);
+  const echoedTags = useMemo(() => {
+    if (!categories) return [];
+    const words = categoryWordSet(categories);
+    return tags.filter((t) => words.has(normalizeWord(t)));
+  }, [tags, categories]);
 
   /**
    * 커버 썸네일용 주소.
@@ -95,7 +125,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
     return url.replace(/["\\]/g, (c) => encodeURIComponent(c));
   }, [coverImage]);
 
-  const activeHint = CATEGORIES.find((c) => c.slug === category)?.hint;
+  const activeHint = categories?.find((c) => c.slug === category)?.hint;
 
   function onTitleChange(next: string) {
     setTitle(next);
@@ -147,6 +177,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
   function validate(status: PostStatus): string | null {
     if (!title.trim()) return '제목을 입력하세요.';
     if (!slug.trim()) return 'slug 를 입력하세요.';
+    if (!category) return '카테고리를 고르세요.';
     if (status === 'published' && !content.trim()) return '본문이 비어 있습니다.';
     return null;
   }
@@ -188,7 +219,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
       }
 
       // draft 로 되돌린 경우에도 기존 정적 페이지를 걷어내야 하므로 항상 재생성한다.
-      // 카테고리는 서버가 6개를 전부 돌리므로 여기서 넘기지 않는다.
+      // 카테고리는 서버가 전체 목록을 돌리므로 여기서 넘기지 않는다.
       const affected = [...new Set([...tags, ...(existing?.tags ?? [])])];
       await revalidatePost(draft.slug, affected);
 
@@ -326,31 +357,51 @@ export function PostEditor({ existing }: { existing?: Post }) {
           <Panel title="분류">
             <div className="space-y-4">
               <fieldset>
-                <legend className={`${labelClass} mb-1.5`}>카테고리 — 정확히 1개</legend>
+                <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                  <legend className={labelClass}>카테고리 — 정확히 1개</legend>
+                  <Link
+                    href="/admin/categories"
+                    className="text-[11px] font-medium text-ink-dim hover:text-ink"
+                  >
+                    카테고리 관리
+                  </Link>
+                </div>
                 {/* 6개 고정이라는 사실 자체가 이 블로그의 설계라 여섯 개를 전부 펼쳐 둔다.
                     select 로 접으면 색과 개수가 화면에서 사라진다. */}
-                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                  {CATEGORIES.map((c) => (
-                    <label key={c.slug} className="cursor-pointer" title={c.hint}>
-                      <input
-                        type="radio"
-                        name="category"
-                        value={c.slug}
-                        checked={category === c.slug}
-                        onChange={() => setCategory(c.slug)}
-                        className="peer sr-only"
-                      />
-                      <span className="flex items-center gap-2 rounded-lg border border-line bg-bg px-2.5 py-2 text-sm transition-colors hover:border-ink-dim peer-checked:border-ink peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--text)]">
-                        <span
-                          aria-hidden
-                          className="size-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: `var(--cat-${c.slug}-fg)` }}
+                {!categories ? (
+                  <p className="text-xs text-ink-dim">카테고리를 불러오는 중…</p>
+                ) : categories.length === 0 ? (
+                  <p className="text-xs text-ink-dim">
+                    카테고리가 없습니다.{' '}
+                    <Link href="/admin/categories" className="font-semibold underline">
+                      먼저 하나 만드세요
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                    {categories.map((c) => (
+                      <label key={c.slug} className="cursor-pointer" title={c.hint || undefined}>
+                        <input
+                          type="radio"
+                          name="category"
+                          value={c.slug}
+                          checked={category === c.slug}
+                          onChange={() => setCategory(c.slug)}
+                          className="peer sr-only"
                         />
-                        <span className="truncate">{c.name}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
+                        <span className="flex items-center gap-2 rounded-lg border border-line bg-bg px-2.5 py-2 text-sm transition-colors hover:border-ink-dim peer-checked:border-ink peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--text)]">
+                          <span
+                            aria-hidden
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: `var(--pal-${c.palette}-fg)` }}
+                          />
+                          <span className="truncate">{c.name}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
                 {activeHint && <p className={hintClass}>{activeHint}</p>}
               </fieldset>
 
@@ -385,7 +436,9 @@ export function PostEditor({ existing }: { existing?: Post }) {
                     <button
                       type="button"
                       className="mt-2 text-[11px] font-semibold underline underline-offset-2"
-                      onClick={() => setTagInput(tags.filter((t) => !isCategoryWord(t)).join(', '))}
+                      onClick={() =>
+                        setTagInput(tags.filter((t) => !echoedTags.includes(t)).join(', '))
+                      }
                     >
                       {echoedTags.length}개 제거
                     </button>

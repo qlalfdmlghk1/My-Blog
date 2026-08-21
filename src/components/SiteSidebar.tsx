@@ -1,21 +1,23 @@
 import Link from 'next/link';
 
-import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import type { CategoryNode, TagCount } from '@/lib/posts';
 
 /**
- * 좌측 분류 내비게이션 — 카테고리 6개와 그 안의 태그.
+ * 좌측 분류 내비게이션 — 카테고리와 그 안의 태그.
  *
  * 기획서는 v1 에서 좌측 트리를 피하기로 했었다 — 레퍼런스의 트리가 글 872개라서
  * 성립하는 구조라 글 3편에 적용하면 빈 공간이 드러난다는 판단이었다.
- * 그 판단은 '태그' 기준이었고, 카테고리는 6개로 고정이라 글 수와 무관하게
- * 항목이 6줄로 유지된다. 그래서 빈 공간 문제 없이 세로 목록을 쓸 수 있다.
+ * 그 판단은 '태그' 기준이었고, 카테고리는 개수가 적고 좀처럼 늘지 않아
+ * 글 수와 무관하게 줄 수가 유지된다. 그래서 빈 공간 문제 없이 세로 목록을 쓸 수 있다.
  *
  * 태그를 카테고리 밑에 접어 넣는 이유: 태그를 따로 떼어 나열하면 '프론트엔드'와
  * '#Next.js' 가 서로 무슨 관계인지 화면에서 알 수 없다. 카테고리 안에 두면
  * 소주제로 읽힌다 — 저장 구조는 그대로 2단이고 집계로만 3단처럼 보인다.
  *
- * 색은 분류에만 — 카테고리는 자기 색 점을 달고, 태그는 무채색으로 남는다.
+ * 목록은 Firestore 에서 온다(관리 화면에서 만든다). 여기서 조회하지 않고
+ * 페이지가 읽어 넘긴 것을 그리기만 한다.
+ *
+ * 색은 분류에만 — 카테고리는 자기 팔레트 색 점을 달고, 태그는 무채색으로 남는다.
  */
 export function SiteSidebar({
   categories,
@@ -23,10 +25,9 @@ export function SiteSidebar({
   activeTag,
 }: {
   categories: CategoryNode[];
-  activeCategory?: CategorySlug;
+  activeCategory?: string;
   activeTag?: string;
 }) {
-  const byslug = new Map(categories.map((c) => [c.slug, c]));
   const total = categories.reduce((sum, c) => sum + c.count, 0);
 
   return (
@@ -46,13 +47,10 @@ export function SiteSidebar({
             />
           </li>
 
-          {CATEGORIES.map((c) => {
-            const node = byslug.get(c.slug);
-            const count = node?.count ?? 0;
-            const all = node?.tags ?? [];
+          {categories.map((c) => {
             const expanded = activeCategory === c.slug;
-            const shown = visibleTags(all, expanded, activeTag);
-            const hidden = all.length - shown.length;
+            const shown = visibleTags(c.tags, expanded, activeTag);
+            const hidden = c.tags.length - shown.length;
 
             return (
               <li key={c.slug}>
@@ -62,11 +60,11 @@ export function SiteSidebar({
                 <CategoryRow
                   href={`/categories/${c.slug}`}
                   label={c.name}
-                  count={count}
+                  count={c.count}
                   active={expanded}
-                  dotSlug={c.slug}
-                  title={c.hint}
-                  muted={count === 0}
+                  palette={c.palette}
+                  title={c.hint || undefined}
+                  muted={c.count === 0}
                 />
 
                 {shown.length > 0 && (
@@ -117,19 +115,18 @@ function visibleTags(all: TagCount[], expanded: boolean, activeTag?: string): Ta
 }
 
 /**
- * 한 줄짜리 분류 항목. 6개 고정이라는 사실 자체가 이 블로그의 설계이므로
- * 글이 0편인 카테고리도 자리를 지킨다.
+ * 한 줄짜리 분류 항목. 글이 0편인 카테고리도 자리를 지킨다 —
+ * 빈 칸이 보여야 무엇을 쓸 차례인지 드러난다.
  *
  * 비어 있음은 opacity 로 표현하지 않는다 — 45% 를 씌우면 본문 대비가 2.9:1 로
- * 떨어져 WCAG 4.5:1 을 못 넘는다. 지금은 6개 중 5개가 0편이라 사이드바 대부분이
- * 그 상태가 된다. 색 토큰(text-ink-dim)으로 낮춰 대비를 지킨다.
+ * 떨어져 WCAG 4.5:1 을 못 넘는다. 색 토큰(text-ink-dim)으로 낮춰 대비를 지킨다.
  */
 function CategoryRow({
   href,
   label,
   count,
   active,
-  dotSlug,
+  palette,
   title,
   muted = false,
 }: {
@@ -137,7 +134,7 @@ function CategoryRow({
   label: string;
   count: number;
   active?: boolean;
-  dotSlug?: CategorySlug;
+  palette?: string;
   title?: string;
   muted?: boolean;
 }) {
@@ -150,11 +147,11 @@ function CategoryRow({
 
   return (
     <Link href={href} className={className} title={title} aria-current={active ? 'page' : undefined}>
-      {dotSlug && (
+      {palette && (
         <span
           aria-hidden
           className={`size-2 shrink-0 rounded-full${muted ? ' opacity-50' : ''}`}
-          style={{ backgroundColor: `var(--cat-${dotSlug}-fg)` }}
+          style={{ backgroundColor: `var(--pal-${palette}-fg)` }}
         />
       )}
       <span className="truncate">{label}</span>

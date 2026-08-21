@@ -10,6 +10,8 @@ export default async function HomePage() {
   // 분류 트리(카테고리 + 그 안의 태그)를 이 목록에서 집계하므로 Firestore 를 한 번만 읽는다
   const posts = await getPublishedPosts();
   const categories = await getCategoryTree(posts);
+  // 글 카드가 배지 색·이름을 각자 조회하지 않도록 한 번 만들어 넘긴다
+  const byslug = new Map(categories.map((c) => [c.slug, c]));
 
   return (
     <ListShell categories={categories}>
@@ -27,7 +29,7 @@ export default async function HomePage() {
       ) : (
         <div className="mt-8">
           {posts.map((p) => (
-            <PostCard key={p.id} post={p} />
+            <PostCard key={p.id} post={p} category={byslug.get(p.category)} />
           ))}
         </div>
       )}

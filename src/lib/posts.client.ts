@@ -17,7 +17,6 @@ import {
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 import { auth, db, storage } from '@/lib/firebase/client';
-import { isCategorySlug } from '@/lib/categories';
 import type { Post, PostDraft, PostSummary } from '@/types/post';
 
 const COLLECTION = 'posts';
@@ -37,7 +36,7 @@ function normalize(id: string, data: Record<string, unknown>): Post {
     title: String(data.title ?? ''),
     content: String(data.content ?? ''),
     excerpt: String(data.excerpt ?? ''),
-    category: isCategorySlug(data.category) ? data.category : 'frontend',
+    category: String(data.category ?? ''),
     tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     coverImage: data.coverImage ? String(data.coverImage) : null,
     status: data.status === 'published' ? 'published' : 'draft',
@@ -132,4 +131,13 @@ export async function revalidatePost(slug: string, tags: string[]): Promise<void
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? `재생성 실패 (${res.status})`);
   }
+}
+
+/**
+ * 글과 무관한 갱신 — 카테고리를 만들거나 고쳤을 때 쓴다.
+ * 목록 · RSS · sitemap · 카테고리 페이지 전체가 다시 만들어진다
+ * (서버가 slug 빈 값이면 글 경로만 건너뛴다).
+ */
+export async function revalidateTaxonomy(): Promise<void> {
+  return revalidatePost('', []);
 }

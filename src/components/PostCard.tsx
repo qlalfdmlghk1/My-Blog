@@ -3,13 +3,21 @@ import Link from 'next/link';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { TagChip } from '@/components/TagChip';
 import { formatDate } from '@/lib/date';
+import type { Category } from '@/types/category';
 import type { PostSummary } from '@/types/post';
 
-export function PostCard({ post }: { post: PostSummary }) {
+export function PostCard({
+  post,
+  category,
+}: {
+  post: PostSummary;
+  /** 이 글의 카테고리 — 목록 화면이 이미 읽어둔 것을 넘긴다 (배지가 직접 조회하지 않는다) */
+  category?: Category | null;
+}) {
   return (
     <article className="border-b border-line py-8 first:pt-0">
       <div className="mb-2.5 flex items-center gap-2.5">
-        <CategoryBadge slug={post.category} size="sm" />
+        <CategoryBadge slug={post.category} category={category} size="sm" />
         <time
           dateTime={post.publishedAt ?? undefined}
           className="text-xs text-ink-dim tabular-nums"

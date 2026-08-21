@@ -361,3 +361,55 @@
 
 - 기존 글의 `#프론트엔드` 태그 정리 (에디터 경고는 신규 입력에만 적용)
 - 배포 후 Lighthouse 실측 → 폰트 전략 확정
+
+---
+
+### Commit — 2026-08-22 03:52
+
+- Message: `Feat:#4 카테고리를 관리 화면에서 만들도록 Firestore 로 이전`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약**
+
+- 카테고리 정본을 `src/lib/categories.ts` 상수 배열 → **Firestore `categories` 컬렉션**으로 이전.
+  문서 ID 가 곧 slug
+- `src/lib/palette.ts` 신설 — 색 슬롯 12종. 카테고리 문서에는 hex 가 아니라 슬롯 ID 만 저장
+- `categories.server.ts`(Admin SDK 읽기) · `categories.client.ts`(관리 화면 CRUD) 분리
+- `/admin/categories` 관리 화면 신설 (389줄)
+- `firestore.rules` — `validCategory()` 추가, 글의 category 검증을 하드코딩 목록에서
+  `exists(/categories/{slug})` 로 교체
+- `scripts/seed-categories.mjs` + `npm run categories:seed`
+- `safe-read.ts` 신설 — 프리렌더 중 Firestore 실패를 기본값으로 떨어뜨리되 로그는 남긴다
+- CSS 변수를 `--cat-{slug}-*` → `--pal-{slot}-*` 로. `TAG_COLOR` 도 무채색 스케일과 같은
+  색상각(H≈220)으로 맞춤
+- README · `.claude/domain/taxonomy.md` 갱신
+
+**결정 로그**
+
+- **색을 자유 컬러피커가 아니라 슬롯 12개로 고정한다.** 자유 색상이면 한 색마다 라이트 배경 ·
+  글자 · 다크 배경 · 글자 네 값을 사람이 맞춰야 하고 하나만 어긋나도 다크 모드에서 글자가 안 읽힌다.
+  슬롯은 네 값이 이미 짝지어져 있어 무엇을 골라도 대비가 깨지지 않는다
+- **CSS 변수를 카테고리별이 아니라 슬롯별로 깐다.** 슬롯 목록이 정적이라 빌드 시점에 확정되고,
+  카테고리별이었다면 루트 레이아웃이 Firestore 조회에 엮여 모든 페이지가 그 조회를 기다렸다
+- **보안 규칙에서 카테고리 목록을 빼고 `exists()` 로 확인한다.** 목록을 규칙에 박아두면
+  카테고리를 하나 만들 때마다 규칙 재배포가 필요하고, 잊으면 저장이 조용히 막힌다
+- **글이 남은 카테고리의 삭제는 규칙이 아니라 화면이 막는다.** 보안 규칙은 집계 쿼리를 할 수 없다.
+  쓰기 권한이 이미 관리자로 한정돼 있어 이 경계는 "권한"이 아니라 "실수 방지"의 문제다
+- **컬렉션이 비면 기본 6개로 떨어진다.** 배포 직후 빈 상태에서 사이드바와 카테고리 페이지가
+  통째로 사라지면 사이트가 고장 난 것처럼 보인다
+- 정렬을 `orderBy` 가 아니라 클라이언트에서 한다 — Firestore 는 해당 필드가 없는 문서를
+  쿼리 결과에서 제외하므로, `order` 가 빠진 문서가 통째로 사라진다
+- slug 는 만들 때 한 번 정하고 바꾸지 않는다 — 바꾸면 발행된 URL 과 글의 참조가 함께 끊긴다
+
+**검증**
+
+- `npm run typecheck` ✅ / `npm run lint` ✅ 0건 / `npm run build` ✅
+- 공개 페이지 First Load JS **106 kB 유지** — `/admin/categories`(289 kB)는 관리자 라우트에만
+
+**다음 작업**
+
+- **배포 시 `npm run rules:deploy` 필수** — 규칙이 `exists(/categories/{slug})` 를 요구하므로
+  구 규칙 상태에서는 새 카테고리로 글을 저장할 수 없다. `npm run categories:seed` 도 함께
+- 기존 글의 `#프론트엔드` 태그 정리 (여전히 미처리 — `/tags/%23프론트엔드` 프리렌더됨)
+- 배포 후 Lighthouse 실측 → 폰트 전략 확정

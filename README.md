@@ -56,7 +56,10 @@ src/
 │   ├── SiteHeader · SiteFooter · ThemeToggle
 │   └── admin/AuthGuard · PostEditor
 ├── lib/
-│   ├── categories.ts             카테고리 6종 + 색 hex (단일 진실 공급원)
+│   ├── palette.ts               색 슬롯 12종 (색 hex 의 단일 진실 공급원)
+│   ├── categories.ts            카테고리 기본값 + 이름 판정 유틸
+│   ├── categories.server.ts     카테고리 읽기 (Admin SDK)
+│   ├── categories.client.ts     카테고리 CRUD (관리 화면)
 │   ├── category-css.ts           위 값에서 CSS 변수 생성
 │   ├── og.tsx                    OG 카드 레이아웃 + 한글 폰트 로딩
 │   ├── posts.ts                  서버 조회 (firebase-admin)
@@ -150,7 +153,18 @@ npx firebase use --add          # 위에서 만든 프로젝트 선택
 npm run rules:deploy
 ```
 
+
 색인 배포를 빠뜨리면 글을 넣는 순간 목록 쿼리가 `FAILED_PRECONDITION`으로 실패한다. `getPublishedPosts()`(status + publishedAt)와 `getPostsByTag()`(status + tags + publishedAt)가 복합 색인을 요구하기 때문이다 — 정의는 `firestore.indexes.json`에 있다. 색인 생성은 몇 분 걸린다.
+
+### 기본 카테고리 심기
+
+카테고리는 Firestore에 있다. 처음 한 번만 기본 6개를 심는다.
+
+```bash
+npm run categories:seed
+```
+
+이미 있는 문서는 건드리지 않는다 (관리 화면에서 고쳐둔 값이 되돌아가지 않게). 이후에는 `/admin/categories`에서 만들고 고친다.
 
 ### 9. 확인
 
@@ -170,7 +184,7 @@ npm run dev
 | `title` | string | |
 | `content` | string | 마크다운 원문 |
 | `excerpt` | string | 비우면 본문에서 자동 생성 |
-| `category` | string | 6종 중 하나 · 정확히 1개 |
+| `category` | string | `categories` 문서의 slug · 정확히 1개. 규칙이 `exists()`로 실재를 확인한다 |
 | `tags` | string[] | 색 없음 · 자유 · 최대 20개 |
 | `coverImage` | string \| null | Storage 다운로드 URL |
 | `status` | `draft` \| `published` | |
@@ -178,6 +192,17 @@ npm run dev
 | `publishedAt` | Timestamp \| null | 최초 발행 시점만 기록 |
 
 조회수는 v2로 유예 (Firestore 쓰기 비용 · 봇 카운팅 문제).
+
+`categories/{slug}` — 문서 ID가 곧 slug다(별도 필드 없음)
+
+| 필드 | 타입 | 비고 |
+|---|---|---|
+| `name` | string | 화면에 보이는 이름 |
+| `hint` | string | 사이드바 툴팁 · 카테고리 페이지 부제 |
+| `palette` | string | `lib/palette.ts`의 슬롯 ID 12종 중 하나 |
+| `order` | number | 사이드바 정렬. 작을수록 위 |
+
+읽기는 공개다 — 사이드바가 로그인 없이 읽는다. 쓰기는 admin 클레임만.
 
 > **slug 유일성은 클라이언트 검사에 의존한다.** `firestore.rules`의 `validPost()`는 타입·길이만 보고 유일성은 검사하지 않으며, 검사와 쓰기 사이에 TOCTOU도 열려 있다. 작성자가 1명이라 실무 위험은 낮지만 서버 보장은 아니다. 보장이 필요해지면 문서 ID를 slug로 쓰거나 `slugs/{slug}` 유일성 문서를 두는 방식을 검토할 것.
 
@@ -222,9 +247,12 @@ Shiki는 `defaultColor: false` + 2개 테마로 출력해 `--shiki-light`/`--shi
 
 색은 장식이 아니라 **길찾기**. 무채색이 화면의 90%를 담당하고 색은 분류에만 등장한다.
 
-- **카테고리** — 색 있음 · 6개 고정 · 글 1개당 1개. 색 hex를 포함한 정의는 [src/lib/categories.ts](src/lib/categories.ts) **한 곳**에만 있다. 카테고리를 추가할 때 고칠 파일은 이것뿐이다.
-  - 화면용 CSS 변수(`--cat-{slug}-{bg,fg}`)는 [category-css.ts](src/lib/category-css.ts)가 그 값에서 생성해 `layout.tsx`가 `<style>`로 주입한다
-  - OG 이미지는 satori가 CSS 변수를 해석하지 못하므로 같은 객체를 TS에서 직접 읽는다 (`categoryLightColor()`)
+- **카테고리** — 색 있음 · 글 1개당 1개. **관리 화면(`/admin/categories`)에서 만든다.** 정본은 Firestore `categories` 컬렉션이고 문서 ID 가 곧 slug다. 색은 [src/lib/palette.ts](src/lib/palette.ts)의 슬롯 12개 중에서 고르며, 카테고리 문서에는 hex가 아니라 슬롯 ID만 저장한다 — 슬롯마다 라이트/다크 2벌과 대비 4.5:1이 이미 맞춰져 있어 어떤 조합을 골라도 화면이 깨지지 않는다.
+  - slug는 만들 때 한 번 정하고 바꾸지 않는다. 바꾸면 발행된 카테고리 URL과 글의 참조가 함께 끊긴다.
+  - 글이 남아 있는 카테고리는 삭제할 수 없다 (관리 화면이 버튼을 잠근다).
+  - 컬렉션이 비어 있으면 서버가 기본 6개로 떨어진다 — 배포 직후 사이트가 빈 껍데기로 보이지 않게 하기 위한 것이다.
+  - 화면용 CSS 변수(`--pal-{slot}-{bg,fg}`)는 [category-css.ts](src/lib/category-css.ts)가 팔레트에서 생성해 `layout.tsx`가 `<style>`로 주입한다. 카테고리별이 아니라 **슬롯별**로 까는 것이 요점이다 — 슬롯 목록이 정적이라 이 문자열이 빌드 시점에 확정되고, 루트 레이아웃이 Firestore 조회에 엮이지 않는다
+  - OG 이미지는 satori가 CSS 변수를 해석하지 못하므로 같은 값을 TS에서 직접 읽는다 (`paletteLightColor()`)
   - 처음에는 `globals.css`에도 hex를 적어뒀지만, OG 이미지가 같은 값을 필요로 하면서 정의처가 둘이 됐다. 언젠가 어긋날 중복이라 CSS를 파생시키는 쪽으로 바꿨다
 - **태그** — 색 없음(회색) · 자유롭게 여러 개
 - 파스텔은 배경에만, 글자는 같은 계열의 진한 값 — 연한 배경 + 회색 글자는 대비 미달이고 A11y 95+ 목표와 직결된다

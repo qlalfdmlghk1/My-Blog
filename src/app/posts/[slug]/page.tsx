@@ -5,6 +5,7 @@ import { notFound } from 'next/navigation';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { hasToc, PostToc } from '@/components/PostToc';
 import { TagChip } from '@/components/TagChip';
+import { getCategoryBySlug } from '@/lib/categories.server';
 import { renderMarkdown } from '@/lib/markdown';
 import { getPostBySlug, getPublishedSlugs } from '@/lib/posts';
 import { decodeSlugParam } from '@/lib/slug';
@@ -57,7 +58,12 @@ export default async function PostPage({ params }: Params) {
   const post = await getPostBySlug(decodeSlugParam(slug));
   if (!post) notFound();
 
-  const { html, toc } = await renderMarkdown(post.content);
+  // 배지가 직접 조회하지 않도록 여기서 한 번 읽어 넘긴다.
+  // 목록에 없는 slug 면 null 이 되고 배지가 무채색으로 떨어진다.
+  const [category, { html, toc }] = await Promise.all([
+    getCategoryBySlug(post.category),
+    renderMarkdown(post.content),
+  ]);
   // 목차를 그릴지 여기서 정한다 — 컬럼 구성과 목차 렌더가 같은 값을 봐야
   // 목차 없는 글에서 빈 컬럼이 남아 본문이 왼쪽으로 밀리는 일이 없다.
   const withToc = hasToc(toc);
@@ -79,7 +85,7 @@ export default async function PostPage({ params }: Params) {
       <div className="min-w-0">
       <header className="border-b border-line pb-7">
         <div className="mb-3 flex items-center gap-2.5">
-          <CategoryBadge slug={post.category} />
+          <CategoryBadge slug={post.category} category={category} />
           <time
             dateTime={post.publishedAt ?? undefined}
             className="text-xs tabular-nums text-ink-dim"

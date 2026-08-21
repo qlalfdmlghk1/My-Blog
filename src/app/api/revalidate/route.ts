@@ -2,7 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
-import { CATEGORY_SLUGS } from '@/lib/categories';
+import { getCategories } from '@/lib/categories.server';
 
 /**
  * 발행 / 수정 / 삭제 후 해당 정적 경로만 재생성한다.
@@ -57,10 +57,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (slug) paths.push(`/posts/${slug}`);
   for (const tag of tags) paths.push(`/tags/${encodeURIComponent(tag)}`);
 
-  // 카테고리는 글이 속한 것만 갱신하면 부족하다 — 사이드바가 여섯 개의 글 수를
-  // 모든 목록 화면에 함께 렌더하므로, 한 편만 발행해도 나머지 다섯 화면의 숫자가
-  // 낡는다. 6개 고정이라 전량 재생성이 상수 비용이므로 그냥 전부 돌린다.
-  for (const category of CATEGORY_SLUGS) paths.push(`/categories/${category}`);
+  // 카테고리는 글이 속한 것만 갱신하면 부족하다 — 사이드바가 카테고리별 글 수를
+  // 모든 목록 화면에 함께 렌더하므로, 한 편만 발행해도 나머지 화면의 숫자가 낡는다.
+  // 카테고리 수는 사람이 관리 화면에서 늘리는 값이라 실질적으로 十수 개를 넘지 않는다.
+  const categories = await getCategories();
+  for (const category of categories) paths.push(`/categories/${category.slug}`);
 
   for (const path of paths) revalidatePath(path);
 

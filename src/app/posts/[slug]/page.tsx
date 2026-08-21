@@ -7,6 +7,7 @@ import { hasToc, PostToc } from '@/components/PostToc';
 import { TagChip } from '@/components/TagChip';
 import { renderMarkdown } from '@/lib/markdown';
 import { getPostBySlug, getPublishedSlugs } from '@/lib/posts';
+import { decodeSlugParam } from '@/lib/slug';
 import { SITE } from '@/lib/site';
 
 export const revalidate = 3600;
@@ -22,7 +23,7 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
-  const post = await getPostBySlug(slug);
+  const post = await getPostBySlug(decodeSlugParam(slug));
   if (!post) return { title: '글을 찾을 수 없습니다' };
   return {
     title: post.title,
@@ -53,7 +54,7 @@ function formatDate(iso: string | null): string {
 
 export default async function PostPage({ params }: Params) {
   const { slug } = await params;
-  const post = await getPostBySlug(slug);
+  const post = await getPostBySlug(decodeSlugParam(slug));
   if (!post) notFound();
 
   const { html, toc } = await renderMarkdown(post.content);

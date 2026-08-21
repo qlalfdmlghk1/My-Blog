@@ -145,10 +145,13 @@ export interface CategoryNode extends Category {
  * where(status) + where(category) + orderBy(publishedAt) 라 복합 색인이 하나 더 필요한데,
  * 글이 세 자리를 넘기 전까지는 목록 한 번 읽고 메모리에서 거르는 편이 싸다.
  */
-export async function getCategoryTree(known?: PostSummary[]): Promise<CategoryNode[]> {
+export async function getCategoryTree(
+  known?: PostSummary[],
+  knownCategories?: Category[],
+): Promise<CategoryNode[]> {
   const [posts, categories] = await Promise.all([
     known ? Promise.resolve(known) : getPublishedPosts(),
-    getCategories(),
+    knownCategories ?? getCategories(),
   ]);
 
   const counts = new Map<string, number>();

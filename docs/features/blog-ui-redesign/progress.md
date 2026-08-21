@@ -479,3 +479,39 @@
 
 - PR #5 리뷰 수렴
 - 카테고리 생성(시드 또는 관리 화면) → `npm run rules:deploy` → 필요 시 `npm run storage:deploy`
+
+---
+
+### Commit — 2026-08-22 05:24
+
+- Message: `Fix:#4 리뷰 수렴 1라운드 — 사라진 Tailwind 유틸·팔레트 검증·재생성 경로·404 굳음`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약** (/review-converge 1라운드 자동 반영 6건)
+
+- `SiteHeader` `bg-bg/80` → `bg-bg` — 색 토큰이 raw `var(--bg)` 라 `<alpha-value>` 자리가 없어
+  유틸이 **생성되지 않았다**(빌드 CSS 에 `.bg-bg\/80` 없음). backdrop-blur 만 남아 sticky 헤더에
+  배경이 통째로 없던 상태
+- `TagChip` `ring-current/40` → `ring-current` — 같은 함정. `.ring-current` 규칙이 0건이라 활성 링이 사라졌다
+- `normalizeCategory` 가 `isPaletteId()` 로 실제 검증 — 캐스트로 넘겨 죽은 가드가 됐고,
+  CSS 변수 소비자(배지·사이드바)와 OG 소비자(`getPaletteSlot`)가 서로 다른 폴백을 내고 있었다
+- `/api/revalidate` 가 경로를 원문·인코딩 두 표기로 무효화하고 중복 제거 — 태그만 인코딩하고
+  글·카테고리는 원문이라 표기가 갈려 있었다
+- `readCategories()` 신설 — 조회 실패와 "정말 0개"를 구분. 카테고리 상세는 `degraded` 면 404 대신
+  throw 해서 ISR 이 직전 정적 페이지를 유지한다
+- `PostEditor.validate()` 가 목록에 없는 카테고리를 막는다 — 통과시키면 규칙의 `categoryExists()` 에
+  걸려 permissions 원문 에러만 뜬다
+
+**결정 로그**
+
+- CSS 두 건은 **빌드 산출물로 검증**했다. 수정 전 `.bg-bg{` 있음 / `.bg-bg\/80` 없음 / `ring-current` 0건,
+  수정 후 `.bg-bg{` 1건 · `ring-current` 1건
+- 재생성 경로는 어느 표기가 캐시 키인지 실측하지 않았다. 존재하지 않는 경로의 `revalidatePath` 는
+  무동작이므로 두 표기를 모두 넣는 편이 안전하다
+- `readCategories` 에서 `safeRead` 를 쓰지 않는다 — fallback 인자가 즉시 평가돼 실패 여부를 표시할 수 없다
+
+**다음 작업**
+
+- 리뷰 수렴 중단 — 진행 중인 Vercel Blob 마이그레이션과 작업 트리가 겹쳐 2라운드 미실행
+- 남긴 항목(보안 Medium 3건·정책 판단 2건 등)은 PR 코멘트 참조

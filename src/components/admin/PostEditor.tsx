@@ -178,6 +178,12 @@ export function PostEditor({ existing }: { existing?: Post }) {
     if (!title.trim()) return '제목을 입력하세요.';
     if (!slug.trim()) return 'slug 를 입력하세요.';
     if (!category) return '카테고리를 고르세요.';
+    // 목록에 없는 카테고리를 가리키는 기존 글. 라디오는 아무것도 선택되지 않은 것처럼
+    // 보이지만 category 값 자체는 남아 있어, 이 검사가 없으면 그대로 통과한 뒤
+    // firestore.rules 의 categoryExists() 에 걸려 permissions 원문 에러만 뜬다.
+    if (categories && !categories.some((c) => c.slug === category)) {
+      return `이 글은 목록에 없는 카테고리 "${category}" 를 가리킵니다. 아래에서 다시 고르거나 카테고리 화면에서 그 slug 로 만드세요.`;
+    }
     if (status === 'published' && !content.trim()) return '본문이 비어 있습니다.';
     return null;
   }

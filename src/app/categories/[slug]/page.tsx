@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 
 import { ListShell } from '@/components/ListShell';
 import { PostCard } from '@/components/PostCard';
-import { getCategories, getCategoryBySlug } from '@/lib/categories.server';
+import { getCategories, getCategoryBySlug, readCategories } from '@/lib/categories.server';
 import { getCategoryTree, getPostsByCategory, getPublishedPosts } from '@/lib/posts';
 import { decodeSlugParam } from '@/lib/slug';
 
@@ -42,13 +42,19 @@ export default async function CategoryPage({ params }: Params) {
   // 목록을 한 번 읽어 집계·필터에 함께 쓴다 (posts 조회 1회).
   // 두 함수 모두 읽어둔 목록을 받으므로 여기서 추가 조회가 일어나지 않는다.
   const all = await getPublishedPosts();
+  const { categories: known, degraded } = await readCategories();
   const [categories, posts] = await Promise.all([
-    getCategoryTree(all),
+    getCategoryTree(all, known),
     getPostsByCategory(decoded, all),
   ]);
 
   const category = categories.find((c) => c.slug === decoded);
-  if (!category) notFound();
+  if (!category) {
+    // 조회가 실패해 목록이 비었을 뿐인데 404 를 내면, 살아 있는 URL 이 revalidate
+    // 주기(1시간) 동안 404 로 굳는다. 던지면 ISR 이 직전 정적 페이지를 계속 서빙한다.
+    if (degraded) throw new Error(`카테고리 조회 실패 — /categories/${decoded} 를 404 로 굳히지 않는다`);
+    notFound();
+  }
 
   return (
     <ListShell categories={categories} total={all.length} activeCategory={category.slug}>

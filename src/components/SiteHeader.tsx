@@ -12,8 +12,14 @@ import { SITE } from '@/lib/site';
  * 헤더 높이를 바꾸면 그 세 곳도 함께 바꿔야 한다.
  */
 export function SiteHeader() {
+  /*
+   * bg-bg 에 투명도 수식(bg-bg/80)을 쓰지 않는다 — 색 토큰이 raw var(--bg) 라
+   * <alpha-value> 자리가 없어 유틸이 아예 생성되지 않는다(빌드 CSS 에 .bg-bg\/80 없음).
+   * 그러면 backdrop-blur 만 남아 헤더 배경이 통째로 사라진다. 흐림이 필요하면
+   * 요소에 opacity-* 를 주거나 토큰을 rgb(... / <alpha-value>) 로 바꿀 것.
+   */
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-line bg-bg backdrop-blur-md">
       {/* 헤더 내비를 건너뛰고 본문으로 바로 가는 표준 링크.
           넓은 화면에서 사이드바가 왼쪽에 보이면서 DOM 상으로는 본문 뒤에 오는
           순서 불일치는 이 링크로 해결되지 않는다 — 도착지가 본문이라 분류에

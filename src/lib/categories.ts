@@ -16,6 +16,7 @@
  * 색 값은 여기 없다 — `lib/palette.ts` 의 슬롯 ID 만 참조한다.
  */
 
+import { isPaletteId } from '@/lib/palette';
 import type { Category } from '@/types/category';
 
 /**
@@ -67,8 +68,10 @@ export function normalizeCategory(id: string, data: Record<string, unknown>): Ca
     slug: id,
     name: String(data.name ?? id),
     hint: String(data.hint ?? ''),
-    // 알 수 없는 슬롯은 palette 쪽에서 첫 슬롯으로 떨어진다 — 여기선 원본을 넘긴다
-    palette: String(data.palette ?? 'slate') as Category['palette'],
+    // 알 수 없는 슬롯은 여기서 떨어뜨린다. 캐스트로 넘기면 타입만 PaletteId 이고
+    // 런타임엔 임의 문자열이라, var(--pal-{unknown}-bg) 가 무효가 되어 배지 색이 사라진다.
+    // (OG 이미지는 getPaletteSlot 이 폴백해서 두 소비자가 다른 색을 내는 상태였다)
+    palette: isPaletteId(data.palette) ? data.palette : 'slate',
     order: Number.isFinite(order) ? order : 999,
   };
 }

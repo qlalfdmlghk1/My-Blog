@@ -54,16 +54,26 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다
   const paths = ['/', '/rss.xml', '/sitemap.xml'];
-  if (slug) paths.push(`/posts/${slug}`);
-  for (const tag of tags) paths.push(`/tags/${encodeURIComponent(tag)}`);
+  // slug·태그에 한글을 허용하므로 실제 요청 경로는 퍼센트 인코딩된 형태다.
+  // 어느 표기가 캐시 키인지 실측하지 않았으므로 두 표기를 모두 무효화한다 —
+  // 존재하지 않는 경로의 revalidatePath 는 무동작이라 넣어도 손해가 없고,
+  // 빠뜨리면 '발행했는데 목록이 안 바뀐다'가 조용히 발생한다.
+  const pushPath = (p: string) => {
+    paths.push(p);
+    const encoded = p.split('/').map(encodeURIComponent).join('/');
+    if (encoded !== p) paths.push(encoded);
+  };
+  if (slug) pushPath(`/posts/${slug}`);
+  for (const tag of tags) pushPath(`/tags/${tag}`);
 
   // 카테고리는 글이 속한 것만 갱신하면 부족하다 — 사이드바가 카테고리별 글 수를
   // 모든 목록 화면에 함께 렌더하므로, 한 편만 발행해도 나머지 화면의 숫자가 낡는다.
   // 카테고리 수는 사람이 관리 화면에서 늘리는 값이라 실질적으로 十수 개를 넘지 않는다.
   const categories = await getCategories();
-  for (const category of categories) paths.push(`/categories/${category.slug}`);
+  for (const category of categories) pushPath(`/categories/${category.slug}`);
 
-  for (const path of paths) revalidatePath(path);
+  const unique = [...new Set(paths)];
+  for (const path of unique) revalidatePath(path);
 
-  return NextResponse.json({ revalidated: paths });
+  return NextResponse.json({ revalidated: unique });
 }

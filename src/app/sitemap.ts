@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 
-import { CATEGORY_SLUGS } from '@/lib/categories';
+import { getCategories } from '@/lib/categories.server';
 import { getAllTags, getPublishedPosts } from '@/lib/posts';
 import { absoluteUrl } from '@/lib/site';
 
@@ -8,7 +8,7 @@ export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const posts = await getPublishedPosts();
-  const tags = await getAllTags(posts);
+  const [tags, categories] = await Promise.all([getAllTags(posts), getCategories()]);
 
   return [
     {
@@ -23,9 +23,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
-    // 카테고리는 6개 고정이라 글이 없어도 항상 싣는다 — 사이트 구조 자체를 알린다
-    ...CATEGORY_SLUGS.map((slug) => ({
-      url: absoluteUrl(`/categories/${slug}`),
+    // 글이 없는 카테고리도 싣는다 — 사이트 구조 자체를 알린다
+    ...categories.map((c) => ({
+      url: absoluteUrl(`/categories/${c.slug}`),
       changeFrequency: 'weekly' as const,
       priority: 0.5,
     })),

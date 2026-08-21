@@ -6,17 +6,24 @@ import { useEffect, useState } from 'react';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { TagChip } from '@/components/TagChip';
 import { StatusPill, btnPrimary, btnSecondary } from '@/components/admin/ui';
+import { listCategories } from '@/lib/categories.client';
 import { formatDate } from '@/lib/date';
 import { listAllPosts } from '@/lib/posts.client';
+import type { Category } from '@/types/category';
 import type { PostSummary } from '@/types/post';
 
 export default function AdminPage() {
   const [posts, setPosts] = useState<PostSummary[] | null>(null);
+  // 배지 이름·색은 카테고리 문서에 있다 — 카드마다 조회하지 않도록 한 번 읽어 맵으로 넘긴다
+  const [categories, setCategories] = useState<Map<string, Category>>(new Map());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listAllPosts()
-      .then(setPosts)
+    Promise.all([listAllPosts(), listCategories()])
+      .then(([found, cats]) => {
+        setPosts(found);
+        setCategories(new Map(cats.map((c) => [c.slug, c])));
+      })
       .catch((err: unknown) =>
         setError(err instanceof Error ? err.message : '목록을 불러오지 못했습니다.'),
       );
@@ -34,9 +41,14 @@ export default function AdminPage() {
             발행하면 해당 글과 목록 · RSS · sitemap 이 함께 재생성됩니다.
           </p>
         </div>
-        <Link href="/admin/write" className={btnPrimary}>
-          새 글 쓰기
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/categories" className={btnSecondary}>
+            카테고리
+          </Link>
+          <Link href="/admin/write" className={btnPrimary}>
+            새 글 쓰기
+          </Link>
+        </div>
       </div>
 
       {/* 숫자는 목록을 세지 않아도 상태를 알려준다 — 특히 "쓰다 만 글"의 존재 */}
@@ -71,8 +83,12 @@ export default function AdminPage() {
       )}
 
       {/* 쓰다 만 글을 위로 올린다 — 관리자가 다시 여는 건 대개 이쪽이다 */}
-      {drafts.length > 0 && <PostSection title="임시" posts={drafts} />}
-      {published.length > 0 && <PostSection title="발행" posts={published} />}
+      {drafts.length > 0 && (
+        <PostSection title="임시" posts={drafts} categories={categories} />
+      )}
+      {published.length > 0 && (
+        <PostSection title="발행" posts={published} categories={categories} />
+      )}
     </div>
   );
 }
@@ -88,7 +104,15 @@ function Stat({ label, value }: { label: string; value?: number }) {
   );
 }
 
-function PostSection({ title, posts }: { title: string; posts: PostSummary[] }) {
+function PostSection({
+  title,
+  posts,
+  categories,
+}: {
+  title: string;
+  posts: PostSummary[];
+  categories: Map<string, Category>;
+}) {
   return (
     <section className="mt-8">
       <h2 className="mb-2.5 flex items-baseline gap-2 text-[11px] font-bold uppercase tracking-wider text-ink-dim">
@@ -97,7 +121,7 @@ function PostSection({ title, posts }: { title: string; posts: PostSummary[] }) 
       </h2>
       <ul className="space-y-2">
         {posts.map((post) => (
-          <PostRow key={post.id} post={post} />
+          <PostRow key={post.id} post={post} category={categories.get(post.category)} />
         ))}
       </ul>
     </section>
@@ -107,7 +131,7 @@ function PostSection({ title, posts }: { title: string; posts: PostSummary[] }) 
 /** 태그가 많은 글이 한 줄을 다 먹지 않게 앞의 몇 개만 보여준다 */
 const TAG_PREVIEW = 4;
 
-function PostRow({ post }: { post: PostSummary }) {
+function PostRow({ post, category }: { post: PostSummary; category?: Category }) {
   const shown = post.tags.slice(0, TAG_PREVIEW);
   const hidden = post.tags.length - shown.length;
 
@@ -115,7 +139,7 @@ function PostRow({ post }: { post: PostSummary }) {
     <li className="rounded-xl border border-line p-4 transition-colors hover:bg-surface">
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill status={post.status} />
-        <CategoryBadge slug={post.category} size="sm" />
+        <CategoryBadge slug={post.category} category={category} size="sm" />
         <time dateTime={post.updatedAt} className="ml-auto text-[11px] tabular-nums text-ink-dim">
           {formatDate(post.updatedAt)} 수정
         </time>

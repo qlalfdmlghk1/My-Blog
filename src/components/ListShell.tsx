@@ -1,5 +1,4 @@
 import { SiteSidebar } from '@/components/SiteSidebar';
-import type { CategorySlug } from '@/lib/categories';
 import type { CategoryNode } from '@/lib/posts';
 
 /**
@@ -19,7 +18,7 @@ export function ListShell({
   children,
 }: {
   categories: CategoryNode[];
-  activeCategory?: CategorySlug;
+  activeCategory?: string;
   activeTag?: string;
   children: React.ReactNode;
 }) {

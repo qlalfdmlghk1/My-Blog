@@ -41,9 +41,23 @@ export function PostEditor({ existing }: { existing?: Post }) {
   // 발췌문 placeholder 도 본문 전체를 정규식으로 훑으므로 미리보기와 같이 memo 한다
   const excerptHint = useMemo(() => autoExcerpt(content), [content]);
 
+  /**
+   * 저장값에는 `#` 을 넣지 않는다.
+   *
+   * 화면에서 `#` 을 붙이는 건 TagChip 의 역할이라, 입력값에 `#` 이 남으면
+   * `##프론트엔드` 로 두 번 찍힌다. 표시만의 문제가 아니라 `프론트엔드` 와
+   * `#프론트엔드` 가 서로 다른 태그로 갈라지고 태그 URL 에도 `%23` 이 섞인다.
+   * 사람은 `#` 을 붙여 쓰는 게 자연스러우므로 막지 말고 여기서 벗겨낸다.
+   */
   const tags = useMemo(
-    () =>
-      [...new Set(tagInput.split(',').map((t) => t.trim()).filter(Boolean))],
+    () => [
+      ...new Set(
+        tagInput
+          .split(',')
+          .map((t) => t.trim().replace(/^#+/, '').trim())
+          .filter(Boolean),
+      ),
+    ],
     [tagInput],
   );
 
@@ -137,9 +151,13 @@ export function PostEditor({ existing }: { existing?: Post }) {
         await createPost(draft);
       }
 
-      // draft 로 되돌린 경우에도 기존 정적 페이지를 걷어내야 하므로 항상 재생성한다
+      // draft 로 되돌린 경우에도 기존 정적 페이지를 걷어내야 하므로 항상 재생성한다.
+      // 카테고리를 바꿔 저장하면 옮겨온 쪽과 떠나온 쪽 목록이 둘 다 낡으므로 함께 넘긴다.
       const affected = [...new Set([...tags, ...(existing?.tags ?? [])])];
-      await revalidatePost(draft.slug, affected);
+      const affectedCategories = [
+        ...new Set([draft.category, ...(existing ? [existing.category] : [])]),
+      ];
+      await revalidatePost(draft.slug, affected, affectedCategories);
 
       router.push('/admin');
       router.refresh();
@@ -157,7 +175,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
     setError(null);
     try {
       await deletePost(existing.id);
-      await revalidatePost(existing.slug, existing.tags);
+      await revalidatePost(existing.slug, existing.tags, [existing.category]);
       router.push('/admin');
       router.refresh();
     } catch (err) {

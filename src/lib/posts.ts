@@ -3,7 +3,7 @@ import 'server-only';
 import type { Timestamp } from 'firebase-admin/firestore';
 
 import { adminDb, hasAdminCredentials } from '@/lib/firebase/admin';
-import { isCategorySlug, type CategorySlug } from '@/lib/categories';
+import { CATEGORY_SLUGS, isCategorySlug, type CategorySlug } from '@/lib/categories';
 import type { Post, PostSummary } from '@/types/post';
 
 const COLLECTION = 'posts';
@@ -150,4 +150,31 @@ export async function getAllTags(known?: PostSummary[]): Promise<TagCount[]> {
   return [...counts.entries()]
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'ko'));
+}
+
+export interface CategoryCount {
+  slug: CategorySlug;
+  count: number;
+}
+
+/**
+ * 카테고리 6종의 글 수를 집계한다. 글이 0편인 카테고리도 빠뜨리지 않는다 —
+ * 6개 고정이라는 사실 자체가 디자인이고, 빈 칸이 보여야 무엇을 쓸 차례인지 드러난다.
+ *
+ * 태그와 달리 Firestore 쿼리를 따로 쏘지 않는다. 카테고리 필터는
+ * where(status) + where(category) + orderBy(publishedAt) 라 복합 색인이 하나 더 필요한데,
+ * 글이 세 자리를 넘기 전까지는 목록 한 번 읽고 메모리에서 거르는 편이 싸다.
+ * (getAllTags 도 같은 이유로 메모리 집계다)
+ */
+export async function getCategoryCounts(known?: PostSummary[]): Promise<CategoryCount[]> {
+  const posts = known ?? (await getPublishedPosts());
+  const counts = new Map<string, number>();
+  for (const p of posts) counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
+  return CATEGORY_SLUGS.map((slug) => ({ slug, count: counts.get(slug) ?? 0 }));
+}
+
+/** 카테고리별 글 목록 — 위와 같은 이유로 메모리에서 거른다 */
+export async function getPostsByCategory(slug: CategorySlug): Promise<PostSummary[]> {
+  const posts = await getPublishedPosts();
+  return posts.filter((p) => p.category === slug);
 }

@@ -2,6 +2,7 @@ import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
+import { isCategorySlug } from '@/lib/categories';
 
 /**
  * 발행 / 수정 / 삭제 후 해당 정적 경로만 재생성한다.
@@ -38,20 +39,26 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
-  let body: { slug?: unknown; tags?: unknown };
+  let body: { slug?: unknown; tags?: unknown; categories?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return NextResponse.json({ error: '본문을 읽을 수 없습니다.' }, { status: 400 });
   }
 
+  const strings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+
   const slug = typeof body.slug === 'string' ? body.slug : '';
-  const tags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === 'string') : [];
+  const tags = strings(body.tags);
+  // 알 수 없는 slug 로 경로를 만들지 않는다 — 카테고리는 6개 고정이다
+  const categories = strings(body.categories).filter(isCategorySlug);
 
   // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다
   const paths = ['/', '/rss.xml', '/sitemap.xml'];
   if (slug) paths.push(`/posts/${slug}`);
   for (const tag of tags) paths.push(`/tags/${encodeURIComponent(tag)}`);
+  for (const category of categories) paths.push(`/categories/${category}`);
 
   for (const path of paths) revalidatePath(path);
 

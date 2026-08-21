@@ -12,6 +12,9 @@
    (OG 이미지는 CSS 변수를 해석하지 못해 같은 값을 TS 에서 직접 읽는다)
    ═══════════════════════════════════════════════ */
 :root {
+  /* 코드용 고정폭 — layout 에서 CDN 으로 불러온다. 한글 폭이 영문 2배라 표·주석이 안 깨진다 */
+  --font-mono: 'D2Coding', ui-monospace, SFMono-Regular, Menlo, monospace;
+
   --bg: #ffffff;
   --surface: #faf9f7;
   --text: #1a1a18;
@@ -38,6 +41,8 @@
 @layer base {
   html {
     color-scheme: light;
+    /* 목차에서 제목으로 뛸 때 부드럽게 — 동작 최소화 설정은 아래 미디어쿼리가 끈다 */
+    scroll-behavior: smooth;
   }
   html.dark {
     color-scheme: dark;
@@ -79,6 +84,8 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.35;
+  /* 목차 링크로 이동했을 때 제목이 화면 맨 위에 딱 붙어 잘려 보이지 않게 여유를 둔다 */
+  scroll-margin-top: 1.5rem;
 }
 .md h2 {
   margin-top: 2.4em;
@@ -113,10 +120,18 @@
 .md li + li {
   margin-top: 0.4em;
 }
+/* 인용은 선 하나가 아니라 박스로 세운다 — 기술 글에서 인용구는 대개
+   "짚고 넘어갈 것"이라 본문 흐름에서 확실히 떨어져 보여야 한다.
+   색은 쓰지 않는다. 배경 명도만으로 분리한다. */
 .md blockquote {
-  padding: 0.1em 0 0.1em 1.1em;
+  padding: 0.9em 1.1em;
   border-left: 3px solid var(--border);
+  border-radius: 0 8px 8px 0;
+  background: var(--surface);
   color: var(--text-dim);
+}
+.md blockquote > * + * {
+  margin-top: 0.7em;
 }
 .md img {
   max-width: 100%;

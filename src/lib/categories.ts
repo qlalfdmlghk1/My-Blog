@@ -76,10 +76,15 @@ export const CATEGORIES = [
  * 되풀이해 태그가 아무것도 구분하지 못한다. 카테고리는 "무슨 성격의 글인가",
  * 태그는 "무엇이 나오는가"로 축을 갈라야 태그가 소주제 역할을 할 수 있다.
  * (판정은 아래 isCategoryWord, 화면 경고는 PostEditor)
+ *
+ * ── 색 값 ──
+ * globals.css 의 무채색 스케일과 같은 색상각(H≈220)을 쓴다. 예전 값(#F1EFE8/#444441)은
+ * H≈50 올리브 계열이었는데, 뉴트럴을 중립으로 바꾼 뒤에는 태그 칩만 누렇게 떠 보인다.
+ * 명도는 그대로 두어 대비를 지켰다 (라이트 8.49→8.17, 다크 6.38→6.35).
  */
 export const TAG_COLOR = {
-  light: { bg: '#F1EFE8', fg: '#444441' },
-  dark: { bg: '#444441', fg: '#D3D1C7' },
+  light: { bg: '#EEF0F4', fg: '#43474F' },
+  dark: { bg: '#3F434C', fg: '#CBCFD8' },
 } as const;
 
 export type Category = (typeof CATEGORIES)[number];

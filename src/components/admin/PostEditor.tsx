@@ -1,8 +1,21 @@
 'use client';
 
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useRef, useState, type ClipboardEvent } from 'react';
 
+import { TagChip } from '@/components/TagChip';
+import {
+  Field,
+  Panel,
+  StatusPill,
+  btnPrimary,
+  btnQuiet,
+  btnSecondary,
+  fieldClass,
+  hintClass,
+  labelClass,
+} from '@/components/admin/ui';
 import { CATEGORIES, type CategorySlug } from '@/lib/categories';
 import { renderPreview } from '@/lib/markdown-preview';
 import {
@@ -60,6 +73,21 @@ export function PostEditor({ existing }: { existing?: Post }) {
     ],
     [tagInput],
   );
+
+  /**
+   * 커버 썸네일용 주소.
+   *
+   * `background-image: url("…")` 에 값을 그대로 꽂으면 따옴표·역슬래시가 든 문자열이
+   * 선언을 빠져나갈 수 있다. 업로드가 아니라 직접 붙여넣은 주소도 들어올 수 있으므로
+   * 걸러둔다. http(s) 가 아니면 썸네일을 그리지 않는다 (주소는 아래에 텍스트로 남는다).
+   */
+  const coverPreview = useMemo(() => {
+    const url = coverImage.trim();
+    if (!/^https?:\/\//i.test(url)) return null;
+    return url.replace(/["\\]/g, (c) => encodeURIComponent(c));
+  }, [coverImage]);
+
+  const activeHint = CATEGORIES.find((c) => c.slug === category)?.hint;
 
   function onTitleChange(next: string) {
     setTitle(next);
@@ -182,177 +210,263 @@ export function PostEditor({ existing }: { existing?: Post }) {
     }
   }
 
-  const field = 'w-full rounded-md border border-line bg-bg px-3 py-2 text-sm';
-  const label = 'mb-1.5 block text-xs font-semibold text-ink-dim';
-  const button =
-    'rounded-md border border-line px-3.5 py-2 text-sm font-semibold disabled:opacity-50';
+  // 이미 발행된 글에 "임시저장"을 누르면 블로그에서 내려간다.
+  // 동작은 같아도 결과가 정반대라 라벨을 결과대로 쓴다.
+  const draftLabel = existing?.status === 'published' ? '비공개로 내리기' : '임시저장';
 
   return (
-    <div className="mx-auto max-w-[1400px] px-5 py-8">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-lg font-bold tracking-tight">
-          {existing ? '글 수정' : '글 작성'}
-        </h1>
-        <div className="flex flex-wrap items-center gap-2">
-          {busy && <span className="text-xs text-ink-dim">{busy}</span>}
-          <button
-            type="button"
-            className={button}
-            disabled={Boolean(busy)}
-            onClick={() => void save('draft')}
-          >
-            임시저장
-          </button>
-          <button
-            type="button"
-            className={`${button} bg-ink text-bg`}
-            disabled={Boolean(busy)}
-            onClick={() => void save('published')}
-          >
-            발행
-          </button>
-          {existing && (
+    <>
+      {/* 본문이 길어져도 저장 수단이 화면 밖으로 밀려나지 않게 고정한다 */}
+      <div className="sticky top-0 z-20 border-b border-line bg-bg">
+        <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3">
+          <Link href="/admin" className="text-xs font-medium text-ink-dim hover:text-ink">
+            ← 목록
+          </Link>
+          <h1 className="text-base font-bold tracking-tight">{existing ? '글 수정' : '새 글'}</h1>
+          {existing && <StatusPill status={existing.status} />}
+
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* 진행 문구는 스크린리더에도 전달한다 — 버튼이 잠긴 이유가 여기에 있다 */}
+            <span aria-live="polite" className="text-xs text-ink-dim">
+              {busy}
+            </span>
             <button
               type="button"
-              className={`${button} text-ink-dim`}
+              className={btnSecondary}
               disabled={Boolean(busy)}
-              onClick={() => void remove()}
+              onClick={() => void save('draft')}
             >
-              삭제
+              {draftLabel}
             </button>
-          )}
-        </div>
-      </div>
-
-      {error && (
-        <p
-          role="alert"
-          className="mb-4 rounded-md border border-line px-3 py-2 text-sm"
-          style={{
-            backgroundColor: 'var(--danger-bg)',
-            color: 'var(--danger-fg)',
-          }}
-        >
-          {error}
-        </p>
-      )}
-
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        {/* ── 입력 ── */}
-        <div className="space-y-4">
-          <div>
-            <label className={label} htmlFor="f-title">
-              제목
-            </label>
-            <input
-              id="f-title"
-              className={field}
-              value={title}
-              onChange={(e) => onTitleChange(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className={label} htmlFor="f-slug">
-              slug — /posts/{slug || '…'}
-            </label>
-            <input
-              id="f-slug"
-              className={`${field} font-mono`}
-              value={slug}
-              onChange={(e) => {
-                setSlugEdited(true);
-                setSlug(e.target.value);
-              }}
-            />
-          </div>
-
-          <div>
-            <label className={label} htmlFor="f-category">
-              카테고리 — 정확히 1개
-            </label>
-            <select
-              id="f-category"
-              className={field}
-              value={category}
-              onChange={(e) => setCategory(e.target.value as CategorySlug)}
+            <button
+              type="button"
+              className={btnPrimary}
+              disabled={Boolean(busy)}
+              onClick={() => void save('published')}
             >
-              {CATEGORIES.map((c) => (
-                <option key={c.slug} value={c.slug}>
-                  {c.name} — {c.hint}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className={label} htmlFor="f-tags">
-              태그 — 쉼표로 구분 · 색 없음
-            </label>
-            <input
-              id="f-tags"
-              className={field}
-              value={tagInput}
-              placeholder="ISR, Firestore, 성능측정"
-              onChange={(e) => setTagInput(e.target.value)}
-            />
-            {tags.length > 0 && (
-              <p className="mt-1.5 text-xs text-ink-dim">{tags.map((t) => `#${t}`).join(' ')}</p>
+              발행
+            </button>
+            {existing && (
+              <button
+                type="button"
+                className={`${btnQuiet} ml-1 border-l border-line pl-3`}
+                disabled={Boolean(busy)}
+                onClick={() => void remove()}
+              >
+                삭제
+              </button>
             )}
-          </div>
-
-          <div>
-            <label className={label} htmlFor="f-excerpt">
-              발췌문 — 비우면 본문에서 자동 생성
-            </label>
-            <textarea
-              id="f-excerpt"
-              className={`${field} h-20 resize-y`}
-              value={excerpt}
-              placeholder={excerptHint || '본문을 쓰면 자동 생성 미리보기가 표시됩니다'}
-              onChange={(e) => setExcerpt(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className={label} htmlFor="f-cover">
-              커버 이미지
-            </label>
-            <input
-              id="f-cover"
-              type="file"
-              accept="image/*"
-              className="text-xs"
-              onChange={(e) => void onCoverPick(e.target.files?.[0])}
-            />
-            {coverImage && (
-              <p className="mt-1.5 break-all font-mono text-[11px] text-ink-dim">{coverImage}</p>
-            )}
-          </div>
-
-          <div>
-            <label className={label} htmlFor="f-body">
-              본문 (마크다운) — 이미지는 붙여넣기하면 업로드 후 자동 삽입됩니다
-            </label>
-            <textarea
-              id="f-body"
-              ref={bodyRef}
-              className={`${field} h-[32rem] resize-y font-mono text-[13px] leading-relaxed`}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              onPaste={(e) => void onPaste(e)}
-            />
-          </div>
-        </div>
-
-        {/* ── 미리보기 ── */}
-        <div>
-          <p className={label}>미리보기 — 코드 하이라이팅은 발행 후 서버에서 적용됩니다</p>
-          <div className="rounded-md border border-line p-5">
-            <div className="md" dangerouslySetInnerHTML={{ __html: previewHtml }} />
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="mx-auto max-w-[1500px] px-5 py-6">
+        {error && (
+          <p
+            role="alert"
+            className="mb-5 rounded-lg border border-line px-3.5 py-3 text-sm"
+            style={{ backgroundColor: 'var(--danger-bg)', color: 'var(--danger-fg)' }}
+          >
+            {error}
+          </p>
+        )}
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Panel title="글 정보">
+            <div className="space-y-4">
+              <Field htmlFor="f-title" label="제목">
+                <input
+                  id="f-title"
+                  className={fieldClass}
+                  value={title}
+                  onChange={(e) => onTitleChange(e.target.value)}
+                />
+              </Field>
+
+              <Field
+                htmlFor="f-slug"
+                label="slug"
+                hint={`발행 주소 — /posts/${slug || '…'}`}
+                aside={
+                  slugEdited ? (
+                    <button
+                      type="button"
+                      className="text-[11px] font-medium text-ink-dim hover:text-ink"
+                      onClick={() => {
+                        setSlugEdited(false);
+                        setSlug(slugify(title));
+                      }}
+                    >
+                      제목에서 다시 만들기
+                    </button>
+                  ) : null
+                }
+              >
+                <input
+                  id="f-slug"
+                  className={`${fieldClass} font-mono`}
+                  value={slug}
+                  onChange={(e) => {
+                    setSlugEdited(true);
+                    setSlug(e.target.value);
+                  }}
+                />
+              </Field>
+            </div>
+          </Panel>
+
+          <Panel title="분류">
+            <div className="space-y-4">
+              <fieldset>
+                <legend className={`${labelClass} mb-1.5`}>카테고리 — 정확히 1개</legend>
+                {/* 6개 고정이라는 사실 자체가 이 블로그의 설계라 여섯 개를 전부 펼쳐 둔다.
+                    select 로 접으면 색과 개수가 화면에서 사라진다. */}
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  {CATEGORIES.map((c) => (
+                    <label key={c.slug} className="cursor-pointer" title={c.hint}>
+                      <input
+                        type="radio"
+                        name="category"
+                        value={c.slug}
+                        checked={category === c.slug}
+                        onChange={() => setCategory(c.slug)}
+                        className="peer sr-only"
+                      />
+                      <span className="flex items-center gap-2 rounded-lg border border-line bg-bg px-2.5 py-2 text-sm transition-colors hover:border-ink-dim peer-checked:border-ink peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--text)]">
+                        <span
+                          aria-hidden
+                          className="size-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: `var(--cat-${c.slug}-fg)` }}
+                        />
+                        <span className="truncate">{c.name}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {activeHint && <p className={hintClass}>{activeHint}</p>}
+              </fieldset>
+
+              <Field htmlFor="f-tags" label="태그 — 쉼표로 구분 · 색 없음">
+                <input
+                  id="f-tags"
+                  className={fieldClass}
+                  value={tagInput}
+                  placeholder="ISR, Firestore, 성능측정"
+                  onChange={(e) => setTagInput(e.target.value)}
+                />
+                {tags.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {tags.map((t) => (
+                      <TagChip key={t} tag={t} />
+                    ))}
+                  </div>
+                )}
+              </Field>
+            </div>
+          </Panel>
+
+          <Panel title="요약" hint="목록 카드 · 검색 결과 · OG 카드에 실립니다">
+            <Field
+              htmlFor="f-excerpt"
+              label="발췌문 — 비우면 본문에서 자동 생성"
+              aside={
+                <span className="text-[11px] tabular-nums text-ink-dim">
+                  {(excerpt || excerptHint).length}자
+                </span>
+              }
+            >
+              <textarea
+                id="f-excerpt"
+                className={`${fieldClass} h-24 resize-y leading-relaxed`}
+                value={excerpt}
+                placeholder={excerptHint || '본문을 쓰면 자동 생성 미리보기가 표시됩니다'}
+                onChange={(e) => setExcerpt(e.target.value)}
+              />
+            </Field>
+          </Panel>
+
+          <Panel title="커버 이미지" hint="선택 사항 — 없으면 카테고리 색 OG 카드가 쓰입니다">
+            <Field htmlFor="f-cover" label="파일 선택">
+              <input
+                id="f-cover"
+                type="file"
+                accept="image/*"
+                className="block w-full text-xs text-ink-dim file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-bg file:px-3 file:py-2 file:text-xs file:font-semibold file:text-ink hover:file:bg-surface"
+                onChange={(e) => void onCoverPick(e.target.files?.[0])}
+              />
+            </Field>
+
+            {coverImage && (
+              <div className="mt-3 flex items-start gap-3">
+                {coverPreview && (
+                  <span
+                    role="img"
+                    aria-label="커버 이미지 미리보기"
+                    className="h-16 w-28 shrink-0 rounded-lg border border-line bg-surface bg-cover bg-center"
+                    style={{ backgroundImage: `url("${coverPreview}")` }}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="break-all font-mono text-[11px] leading-relaxed text-ink-dim">
+                    {coverImage}
+                  </p>
+                  <button
+                    type="button"
+                    className="mt-1.5 text-[11px] font-medium text-ink-dim hover:text-ink"
+                    onClick={() => setCoverImage('')}
+                  >
+                    커버 제거
+                  </button>
+                </div>
+              </div>
+            )}
+          </Panel>
+        </div>
+
+        {/* ── 본문 · 미리보기 ── */}
+        <div className="mt-4 grid gap-4 xl:grid-cols-2 xl:items-start">
+          <Panel>
+            <Field
+              htmlFor="f-body"
+              label="본문 (마크다운)"
+              hint="이미지는 붙여넣기하면 업로드 후 커서 위치에 삽입됩니다"
+              aside={
+                <span className="text-[11px] tabular-nums text-ink-dim">
+                  {content.length.toLocaleString('ko-KR')}자
+                </span>
+              }
+            >
+              <textarea
+                id="f-body"
+                ref={bodyRef}
+                className={`${fieldClass} h-[34rem] resize-y font-mono text-[13px] leading-relaxed`}
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                onPaste={(e) => void onPaste(e)}
+              />
+            </Field>
+          </Panel>
+
+          {/* 본문을 내려도 미리보기가 따라오게 붙여둔다 (넓은 화면에서만) */}
+          <div className="xl:sticky xl:top-[4.75rem]">
+            <Panel>
+              <p className={labelClass}>미리보기</p>
+              <p className={hintClass}>코드 하이라이팅은 발행 후 서버에서 적용됩니다</p>
+              <div className="mt-3 rounded-lg border border-line bg-bg p-5 xl:max-h-[calc(100dvh-14rem)] xl:overflow-y-auto">
+                {content.trim() ? (
+                  // 관리자 본인이 방금 입력한 마크다운을 그대로 되비추는 자리다.
+                  // 외부 입력이 아니며, 발행 경로는 서버의 renderMarkdown() 을 따로 탄다.
+                  <div className="md" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                ) : (
+                  <p className="py-10 text-center text-xs text-ink-dim">
+                    본문을 쓰면 여기에 그대로 나타납니다.
+                  </p>
+                )}
+              </div>
+            </Panel>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

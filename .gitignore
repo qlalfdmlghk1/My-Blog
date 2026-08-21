@@ -23,3 +23,12 @@ Thumbs.db
 # 로그
 *.log
 npm-debug.log*
+
+# 서비스 계정 키 — 다운로드한 JSON 이 저장소에 들어오지 않게 한다
+firebase-adminsdk-*.json
+service-account*.json
+*-firebase-adminsdk-*.json
+
+# 키 교체 시 생기는 백업 — 옛 키가 들어 있다
+.env.local.bak
+.env.*.bak

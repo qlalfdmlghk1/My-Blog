@@ -453,3 +453,29 @@
 - 배포 시 `npm run categories:seed`(선택) → `npm run rules:deploy` (이 순서 고정)
 - 기존 글의 `#프론트엔드` 태그 정리
 - 배포 후 Lighthouse 실측 → 폰트 전략 확정
+
+---
+
+### Commit — 2026-08-22 04:41
+
+- Message: `Chore:#4 Storage 규칙 배포를 rules:deploy 에서 분리`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약**
+
+- `rules:deploy` 에서 `storage` 를 빼고 `storage:deploy` 를 새로 둔다
+- README 에 "규칙 배포는 코드 배포와 별개" 절 추가 — Vercel 이 아니라 Firebase 로 나가며,
+  배포 즉시 로컬·프리뷰·프로덕션이 전부 새 규칙을 적용받는다
+
+**결정 로그**
+
+- 한 명령에 묶지 않는 이유: Storage 를 아직 켜지 않은 프로젝트에서 그 단계가 실패하면
+  **Firestore 규칙까지 함께 못 올라간다.** 실패 하나가 무관한 배포를 막는 구조를 없앴다
+- 순서 주의를 README 에 명시 — 새 규칙을 요구하는 코드를 올리기 전에 규칙을 먼저 배포해야
+  하고, 뒤바뀌면 배포본이 `Missing or insufficient permissions.` 를 낸다
+
+**다음 작업**
+
+- PR #5 리뷰 수렴
+- 카테고리 생성(시드 또는 관리 화면) → `npm run rules:deploy` → 필요 시 `npm run storage:deploy`

@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { ListShell } from '@/components/ListShell';
 import { PostCard } from '@/components/PostCard';
 import { CATEGORY_SLUGS, getCategory, isCategorySlug } from '@/lib/categories';
-import { getAllTags, getCategoryCounts, getPostsByCategory, getPublishedPosts } from '@/lib/posts';
+import { getCategoryTree, getPostsByCategory, getPublishedPosts } from '@/lib/posts';
 
 export const revalidate = 3600;
 
@@ -35,15 +35,14 @@ export default async function CategoryPage({ params }: Params) {
   // 목록을 한 번 읽어 집계·필터에 함께 쓴다 (Firestore 조회 1회).
   // 세 함수 모두 읽어둔 목록을 받으므로 여기서 추가 조회가 일어나지 않는다.
   const all = await getPublishedPosts();
-  const [tags, categories, posts] = await Promise.all([
-    getAllTags(all),
-    getCategoryCounts(all),
+  const [categories, posts] = await Promise.all([
+    getCategoryTree(all),
     getPostsByCategory(slug, all),
   ]);
   const category = getCategory(slug);
 
   return (
-    <ListShell categories={categories} tags={tags} activeCategory={slug}>
+    <ListShell categories={categories} activeCategory={slug}>
       <header className="border-b border-line pb-6">
         <h1 className="text-2xl font-bold tracking-tight">{category.name}</h1>
         <p className="mt-2 text-sm text-ink-dim">

@@ -1,21 +1,18 @@
 import { ListShell } from '@/components/ListShell';
 import { PostCard } from '@/components/PostCard';
 import { SiteIntro } from '@/components/SiteIntro';
-import { getAllTags, getCategoryCounts, getPublishedPosts } from '@/lib/posts';
+import { getCategoryTree, getPublishedPosts } from '@/lib/posts';
 
 /** ISR — 평소에는 생성된 정적 HTML 을 서빙하고, 발행 시 revalidatePath 로 갱신 */
 export const revalidate = 3600;
 
 export default async function HomePage() {
-  // 태그·카테고리 모두 이 목록에서 집계하므로 Firestore 를 한 번만 읽는다
+  // 분류 트리(카테고리 + 그 안의 태그)를 이 목록에서 집계하므로 Firestore 를 한 번만 읽는다
   const posts = await getPublishedPosts();
-  const [tags, categories] = await Promise.all([
-    getAllTags(posts),
-    getCategoryCounts(posts),
-  ]);
+  const categories = await getCategoryTree(posts);
 
   return (
-    <ListShell categories={categories} tags={tags}>
+    <ListShell categories={categories}>
       <SiteIntro />
 
       {posts.length === 0 ? (

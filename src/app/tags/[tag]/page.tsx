@@ -5,7 +5,7 @@ import { PostCard } from '@/components/PostCard';
 import {
   filterPostsByTag,
   getAllTags,
-  getCategoryCounts,
+  getCategoryTree,
   getPublishedPosts,
 } from '@/lib/posts';
 import { decodeSlugParam } from '@/lib/slug';
@@ -36,11 +36,11 @@ export default async function TagPage({ params }: Params) {
   // 목록·사이드바 집계가 같은 목록을 보게 한다 — 출처가 갈리면 사이드바에는
   // "#태그 3", 본문에는 "0개"가 동시에 뜨는 상태가 생긴다. (Firestore 조회 1회)
   const all = await getPublishedPosts();
-  const [tags, categories] = await Promise.all([getAllTags(all), getCategoryCounts(all)]);
+  const categories = await getCategoryTree(all);
   const posts = filterPostsByTag(all, decoded);
 
   return (
-    <ListShell categories={categories} tags={tags} activeTag={decoded}>
+    <ListShell categories={categories} activeTag={decoded}>
       <header className="border-b border-line pb-6">
         <h1 className="text-2xl font-bold tracking-tight">#{decoded}</h1>
         <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>

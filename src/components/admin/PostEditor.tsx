@@ -16,7 +16,7 @@ import {
   hintClass,
   labelClass,
 } from '@/components/admin/ui';
-import { CATEGORIES, type CategorySlug } from '@/lib/categories';
+import { CATEGORIES, isCategoryWord, type CategorySlug } from '@/lib/categories';
 import { renderPreview } from '@/lib/markdown-preview';
 import {
   createPost,
@@ -73,6 +73,14 @@ export function PostEditor({ existing }: { existing?: Post }) {
     ],
     [tagInput],
   );
+
+  /**
+   * 카테고리 이름을 되풀이하는 태그.
+   *
+   * 막지는 않고 알리기만 한다 — 저장을 막으면 규칙을 모르는 상태에서 글이 잠기고,
+   * 정작 고쳐야 할 이유는 화면에 안 남는다. 이유를 보여주고 한 번에 지울 수단을 준다.
+   */
+  const echoedTags = useMemo(() => tags.filter(isCategoryWord), [tags]);
 
   /**
    * 커버 썸네일용 주소.
@@ -346,19 +354,41 @@ export function PostEditor({ existing }: { existing?: Post }) {
                 {activeHint && <p className={hintClass}>{activeHint}</p>}
               </fieldset>
 
-              <Field htmlFor="f-tags" label="태그 — 쉼표로 구분 · 색 없음">
+              <Field htmlFor="f-tags" label="태그 — 기술 · 도구 이름만">
                 <input
                   id="f-tags"
                   className={fieldClass}
                   value={tagInput}
-                  placeholder="ISR, Firestore, 성능측정"
+                  placeholder="Next.js, Firestore, ISR"
                   onChange={(e) => setTagInput(e.target.value)}
                 />
+                <p className={hintClass}>
+                  쉼표로 구분 · 색 없음. 카테고리가 &ldquo;무슨 성격의 글인가&rdquo;라면 태그는
+                  &ldquo;무엇이 나오는가&rdquo;입니다.
+                </p>
+
                 {tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {tags.map((t) => (
                       <TagChip key={t} tag={t} />
                     ))}
+                  </div>
+                )}
+
+                {echoedTags.length > 0 && (
+                  <div role="status" className="mt-2.5 rounded-lg border border-ink-dim p-3">
+                    <p className="text-[11px] font-bold">카테고리 이름을 태그로 다시 붙였습니다</p>
+                    <p className={hintClass}>
+                      <span className="font-mono">{echoedTags.join(', ')}</span> 은(는) 카테고리가
+                      이미 말하고 있어, 태그로 두면 두 축이 같은 걸 가리킵니다.
+                    </p>
+                    <button
+                      type="button"
+                      className="mt-2 text-[11px] font-semibold underline underline-offset-2"
+                      onClick={() => setTagInput(tags.filter((t) => !isCategoryWord(t)).join(', '))}
+                    >
+                      {echoedTags.length}개 제거
+                    </button>
                   </div>
                 )}
               </Field>

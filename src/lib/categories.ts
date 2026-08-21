@@ -67,7 +67,16 @@ export const CATEGORIES = [
   },
 ] as const;
 
-/** 일반 태그 — 색 없음(회색). 카테고리와 같은 자리에서 관리한다. */
+/**
+ * 일반 태그 — 색 없음(회색). 카테고리와 같은 자리에서 관리한다.
+ *
+ * ── 태그에 붙는 유일한 규칙: 고유명사만 ──
+ * 태그는 기술 · 도구 · 스펙 이름(`Next.js` `Firestore` `ISR`)만 받는다.
+ * 카테고리 이름(`프론트엔드` `성능`)을 태그로 다시 붙이면 두 축이 같은 말을
+ * 되풀이해 태그가 아무것도 구분하지 못한다. 카테고리는 "무슨 성격의 글인가",
+ * 태그는 "무엇이 나오는가"로 축을 갈라야 태그가 소주제 역할을 할 수 있다.
+ * (판정은 아래 isCategoryWord, 화면 경고는 PostEditor)
+ */
 export const TAG_COLOR = {
   light: { bg: '#F1EFE8', fg: '#444441' },
   dark: { bg: '#444441', fg: '#D3D1C7' },
@@ -93,6 +102,29 @@ export function getCategory(slug: CategorySlug): Category {
 /** 카테고리 이름 — 알 수 없는 값이면 slug 를 그대로 보여준다(데이터 유실보다 나음) */
 export function categoryName(slug: string): string {
   return BY_SLUG.get(slug)?.name ?? slug;
+}
+
+/**
+ * 표기 흔들림을 흡수한 비교용 형태.
+ * `Next.js` 와 `nextjs`, `프론트 엔드` 와 `프론트엔드` 를 같은 낱말로 본다.
+ *
+ * `#` 도 떼어낸다 — 에디터는 저장 전에 이미 벗겨내지만, 그걸 거치지 않은
+ * 기존 데이터(`#프론트엔드`)를 판정할 때 여기서 걸러야 한다.
+ */
+function normalizeWord(value: string): string {
+  return value.trim().toLowerCase().replace(/[#\s._-]/g, '');
+}
+
+const CATEGORY_WORDS = new Set(
+  CATEGORIES.flatMap((c) => [c.slug, c.name]).map(normalizeWord),
+);
+
+/**
+ * 카테고리가 이미 쓰고 있는 낱말인지 — 태그로 쓰면 안 되는 값 판정.
+ * slug(`frontend`)와 한글 이름(`프론트엔드`)을 모두 막는다.
+ */
+export function isCategoryWord(value: string): boolean {
+  return CATEGORY_WORDS.has(normalizeWord(value));
 }
 
 /**

@@ -2,17 +2,8 @@ import Link from 'next/link';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { TagChip } from '@/components/TagChip';
+import { formatDate } from '@/lib/date';
 import type { PostSummary } from '@/types/post';
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '';
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    timeZone: 'Asia/Seoul',
-  }).format(new Date(iso));
-}
 
 export function PostCard({ post }: { post: PostSummary }) {
   return (

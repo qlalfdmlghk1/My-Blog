@@ -4,7 +4,9 @@ import { onAuthStateChanged, signInWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
+import { Field, btnPrimary, fieldClass } from '@/components/admin/ui';
 import { auth, hasAdminClaim, isClientConfigured } from '@/lib/firebase/client';
+import { SITE } from '@/lib/site';
 
 /** 관리자 로그인 — Firebase Auth, 계정 1개(본인) */
 export default function LoginPage() {
@@ -49,63 +51,72 @@ export default function LoginPage() {
     }
   }
 
-  const field = 'w-full rounded-md border border-line bg-bg px-3 py-2 text-sm';
-
   return (
-    <main id="main" className="mx-auto max-w-sm px-5 py-24">
-      <h1 className="text-lg font-bold tracking-tight">관리자 로그인</h1>
+    <main id="main" className="mx-auto flex max-w-shell justify-center px-5 py-16 sm:py-24">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-wider text-ink-dim">
+            {SITE.name}
+          </p>
+          <h1 className="mt-1.5 text-xl font-bold tracking-tight">관리자 로그인</h1>
+          <p className="mt-2 text-xs leading-relaxed text-ink-dim">
+            글을 쓰고 발행하는 화면입니다. 블로그를 읽는 데는 로그인이 필요 없습니다.
+          </p>
+        </div>
 
-      {!configured ? (
-        <p className="mt-4 text-sm text-ink-dim">
-          Firebase 설정이 없습니다. <code className="font-mono">.env.local</code> 의
-          <code className="font-mono"> NEXT_PUBLIC_FIREBASE_*</code> 를 채우고 다시 시도하세요.
-        </p>
-      ) : (
-        <form onSubmit={(e) => void submit(e)} className="mt-6 space-y-3">
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-ink-dim" htmlFor="email">
-              이메일
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="username"
-              required
-              className={field}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-ink-dim" htmlFor="password">
-              비밀번호
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              className={field}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-
-          {error && (
-            <p role="alert" className="text-xs" style={{ color: 'var(--danger-fg)' }}>
-              {error}
+        <div className="rounded-xl border border-line bg-surface p-6">
+          {!configured ? (
+            <p className="text-sm leading-relaxed text-ink-dim">
+              Firebase 설정이 없습니다. <code className="font-mono">.env.local</code> 의
+              <code className="font-mono"> NEXT_PUBLIC_FIREBASE_*</code> 를 채우고 다시 시도하세요.
             </p>
-          )}
+          ) : (
+            <form onSubmit={(e) => void submit(e)} className="space-y-4">
+              <Field htmlFor="email" label="이메일">
+                <input
+                  id="email"
+                  type="email"
+                  autoComplete="username"
+                  required
+                  className={fieldClass}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </Field>
 
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full rounded-md border border-line bg-ink px-3.5 py-2.5 text-sm font-semibold text-bg disabled:opacity-50"
-          >
-            {busy ? '확인 중…' : '로그인'}
-          </button>
-        </form>
-      )}
+              <Field htmlFor="password" label="비밀번호">
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  className={fieldClass}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
+
+              {error && (
+                <p
+                  role="alert"
+                  className="rounded-lg px-3 py-2.5 text-xs leading-relaxed"
+                  style={{ backgroundColor: 'var(--danger-bg)', color: 'var(--danger-fg)' }}
+                >
+                  {error}
+                </p>
+              )}
+
+              <button type="submit" disabled={busy} className={`${btnPrimary} w-full py-2.5`}>
+                {busy ? '확인 중…' : '로그인'}
+              </button>
+            </form>
+          )}
+        </div>
+
+        <p className="mt-4 text-center text-[11px] leading-relaxed text-ink-dim">
+          로그인에 성공해도 admin 커스텀 클레임이 없는 계정은 관리 화면에 들어갈 수 없습니다.
+        </p>
+      </div>
     </main>
   );
 }

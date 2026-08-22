@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { ListShell } from '@/components/ListShell';
@@ -61,9 +62,12 @@ export async function SubcategoryList({
       <header className="border-b border-line pb-6">
         {/* 소분류만 보면 어느 대분류 소속인지 알 수 없다 — 상위를 함께 보이고 링크한다 */}
         <nav aria-label="상위 분류" className="mb-1.5 text-xs text-ink-dim">
-          <a href={`/categories/${parent.slug}`} className="hover:text-ink hover:underline">
+          <Link
+            href={`/categories/${encodeURIComponent(parent.slug)}`}
+            className="hover:text-ink hover:underline"
+          >
             {parent.name}
-          </a>
+          </Link>
         </nav>
         <h1 className="text-2xl font-bold tracking-tight">{found.name}</h1>
         {/* 개수는 이 페이지가 아니라 소분류 전체 기준 */}

@@ -114,16 +114,48 @@ export async function uploadImage(file: File): Promise<string> {
   const user = auth().currentUser;
   if (!user) throw new Error('로그인이 필요합니다.');
 
-  // 파일명은 URL 조각이 되므로 공백·한글·특수문자를 정리한다.
-  // 이름이 통째로 사라지는 경우(전부 특수문자)를 대비해 기본값을 둔다.
-  const safeName = file.name.replace(/[^\w.\-]/g, '_').replace(/^_+/, '') || 'image';
+  try {
+    const { url } = await upload(`posts/${safeFileName(file.name)}`, file, {
+      access: 'public',
+      handleUploadUrl: '/api/blob-upload',
+      clientPayload: await user.getIdToken(),
+    });
+    return url;
+  } catch (error) {
+    throw new Error(uploadErrorMessage(error));
+  }
+}
 
-  const { url } = await upload(`posts/${safeName}`, file, {
-    access: 'public',
-    handleUploadUrl: '/api/blob-upload',
-    clientPayload: await user.getIdToken(),
-  });
-  return url;
+/**
+ * 파일명은 URL 조각이 되므로 공백·한글·특수문자를 정리한다.
+ *
+ * 확장자를 먼저 떼고 판정한다. 통째로 치환하면 `사진.png` 가 `.png` 로 남는데,
+ * 빈 문자열이 아니라서 기본값이 발동하지 않고 경로가 `posts/.png` 가 된다 —
+ * 이름이 사라지는 것을 막으려던 폴백이 가장 흔한 경우에서 무력해진다.
+ */
+function safeFileName(name: string): string {
+  const dot = name.lastIndexOf('.');
+  const ext = dot > 0 ? name.slice(dot).replace(/[^\w.]/g, '') : '';
+  const stem =
+    (dot > 0 ? name.slice(0, dot) : name).replace(/[^\w\-]/g, '_').replace(/^_+|_+$/g, '') ||
+    'image';
+  return `${stem}${ext}`;
+}
+
+/**
+ * 업로드 실패를 사람이 읽을 문구로 바꾼다.
+ *
+ * /api/blob-upload 가 상황별 한국어 메시지를 JSON 으로 돌려주지만 **화면에 닿지 않는다** —
+ * @vercel/blob 클라이언트가 non-2xx 응답의 본문을 읽지 않고 고정 문구
+ * "Failed to  retrieve the client token" 만 던지기 때문이다(라이브러리의 이중 공백 그대로).
+ * 자격증명 누락인지 권한 부족인지 로그인 만료인지가 구분되지 않으므로 여기서 되짚어 준다.
+ */
+function uploadErrorMessage(error: unknown): string {
+  const raw = error instanceof Error ? error.message : '';
+  if (/retrieve the client token/i.test(raw)) {
+    return '업로드 권한을 받지 못했습니다. 로그인 상태와 Blob 스토어 연결(BLOB_READ_WRITE_TOKEN)을 확인하세요.';
+  }
+  return raw || '이미지를 올리지 못했습니다.';
 }
 
 /**

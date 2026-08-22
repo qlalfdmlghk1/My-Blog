@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import type { ReactElement } from 'react';
 
-import { categoryLightColor, categoryName } from '@/lib/categories';
+import { paletteLightColor } from '@/lib/palette';
 import { SITE } from '@/lib/site';
 
 /** OG 이미지 표준 크기 */
@@ -32,11 +32,17 @@ export async function loadOgFont(): Promise<Buffer> {
   return fontCache;
 }
 
-/** 무채색 90% — 색은 카테고리 배지에만 등장한다 (화면과 같은 규칙) */
-const INK = '#1a1a18';
-const INK_DIM = '#6b6a63';
+/**
+ * 무채색 90% — 색은 카테고리 배지에만 등장한다 (화면과 같은 규칙)
+ *
+ * satori 는 CSS 변수를 해석하지 못해 값을 여기 다시 적는다.
+ * globals.css `:root` 의 라이트 뉴트럴과 같은 값이어야 한다 — 한쪽만 바꾸면
+ * OG 카드만 옛 색으로 남는다.
+ */
+const INK = '#16181d';
+const INK_DIM = '#5f6672';
 const BG = '#ffffff';
-const LINE = '#e6e4dd';
+const LINE = '#e1e4ea';
 
 export function OgCard({
   title,
@@ -45,11 +51,13 @@ export function OgCard({
   date,
 }: {
   title: string;
-  category?: string;
+  /** 카테고리는 Firestore 에 있으므로 slug 가 아니라 이름·팔레트를 받아 온다 */
+  category?: { name: string; palette: string } | null;
   tags?: string[];
   date?: string;
 }): ReactElement {
-  const color = category ? categoryLightColor(category) : null;
+  // satori 는 CSS 변수를 해석하지 못한다 — 팔레트 색을 TS 값으로 직접 읽는다
+  const color = category ? paletteLightColor(category.palette) : null;
 
   return (
     <div
@@ -77,7 +85,7 @@ export function OgCard({
               marginBottom: 34,
             }}
           >
-            {categoryName(category)}
+            {category.name}
           </div>
         )}
         <div

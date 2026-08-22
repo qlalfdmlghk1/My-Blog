@@ -146,3 +146,33 @@
 
 - 한 줄 소개·author 확정
 - Vercel 배포 후 `NEXT_PUBLIC_SITE_URL` 설정, 실측 Lighthouse 기록
+
+### Commit — 2026-08-21 01:26
+
+- Message: `Chore:#1 배포 점검 반영 — firebase 프로젝트 설정 추가와 문서 갱신`
+- Issue: `#1`
+
+**변경 요약**
+
+- `.firebaserc` 추가 — 없어서 `npm run rules:deploy` 가 프로젝트를 못 찾고 실패하던 상태였다
+- `rules:deploy` 를 `npx -y firebase-tools` 로 변경, firebase CLI 전역 설치 없이 실행되게 함
+- `site.ts` 주석에서 `description`·`author` 임시값 표기 제거 (현재 문구로 확정)
+- README 남은 작업 갱신 — Firebase 연결 완료 처리, 존재하지 않는 `TODO_ADMIN_UID` 참조 제거,
+  `NEXT_PUBLIC_SITE_URL` 보류 사유 명시
+- `tech.md` 신규 — 프로덕션 발행 파이프라인 검증 결과와 이번 결정 사항 기록
+
+**결정 로그**
+
+- `NEXT_PUBLIC_SITE_URL` 은 등록하지 않는다. 커스텀 도메인 예정이라 지금 vercel.app 주소로 고정하면
+  도메인 연결 시 canonical·RSS guid 가 두 번 바뀐다. 글이 0건인 지금이 주소를 바꿔도 구독자에게
+  재발송이 발생하지 않는 마지막 타이밍이라는 점도 함께 고려했다.
+- `SITE.description`·`author` 를 현재 문구로 확정.
+- 보안 규칙은 이미 배포돼 있음을 실측으로 확인했다 — 관리자 커스텀 토큰으로 잘못된 `category` 쓰기를
+  시도해 403 이 나오는 것으로 `validPost` 가 살아있음을 입증. Admin SDK 직접 쓰기는 규칙을 우회하므로
+  검증에 쓸 수 없다.
+
+**다음 작업**
+
+- `/admin/write` 에디터를 브라우저에서 실제 사용해보기 (마크다운 프리뷰·이미지 업로드·OG 이미지 렌더 확인)
+- 커스텀 도메인 확정 후 `NEXT_PUBLIC_SITE_URL` 등록
+- 첫 글 3편 주제 확정, 실측 Lighthouse 기록

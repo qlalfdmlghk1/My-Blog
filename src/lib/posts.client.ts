@@ -14,9 +14,9 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { upload } from '@vercel/blob/client';
 
-import { auth, db, storage } from '@/lib/firebase/client';
+import { auth, db } from '@/lib/firebase/client';
 import type { Post, PostDraft, PostSummary } from '@/types/post';
 
 const COLLECTION = 'posts';
@@ -101,14 +101,28 @@ export async function deletePost(id: string): Promise<void> {
   await deleteDoc(doc(db(), COLLECTION, id));
 }
 
-/** 이미지 업로드 → 다운로드 URL. 붙여넣기 핸들러가 이 URL 을 마크다운으로 삽입한다. */
+/**
+ * 이미지 업로드 → 공개 URL. 붙여넣기 핸들러가 이 URL 을 마크다운으로 삽입한다.
+ *
+ * 파일은 서버를 거치지 않고 브라우저에서 Vercel Blob 으로 직행한다.
+ * /api/blob-upload 는 허가 토큰만 내주며, 그 토큰을 받으려면 관리자여야 한다
+ * (Firebase ID 토큰을 clientPayload 로 보내 서버가 검증한다).
+ * 파일 크기·형식 제한도 그 라우트가 정한다 — 여기서 거르면 우회할 수 있다.
+ */
 export async function uploadImage(file: File): Promise<string> {
-  const safeName = file.name.replace(/[^\w.\-]/g, '_');
-  const path = `posts/${Date.now()}-${safeName}`;
-  const snap = await uploadBytes(ref(storage(), path), file, {
-    contentType: file.type || 'application/octet-stream',
+  const user = auth().currentUser;
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  // 파일명은 URL 조각이 되므로 공백·한글·특수문자를 정리한다.
+  // 이름이 통째로 사라지는 경우(전부 특수문자)를 대비해 기본값을 둔다.
+  const safeName = file.name.replace(/[^\w.\-]/g, '_').replace(/^_+/, '') || 'image';
+
+  const { url } = await upload(`posts/${safeName}`, file, {
+    access: 'public',
+    handleUploadUrl: '/api/blob-upload',
+    clientPayload: await user.getIdToken(),
   });
-  return getDownloadURL(snap.ref);
+  return url;
 }
 
 /**

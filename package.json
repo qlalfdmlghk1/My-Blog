@@ -4,16 +4,18 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "next dev",
+    "dev:ipv4": "next dev -H 127.0.0.1",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "admin:claim": "node scripts/set-admin-claim.mjs",
-    "rules:deploy": "npx -y firebase-tools deploy --only firestore:rules,firestore:indexes",
-    "categories:seed": "node scripts/seed-categories.mjs",
-    "storage:deploy": "npx -y firebase-tools deploy --only storage"
+    "rules:deploy": "npx -y firebase-tools deploy --only firestore:rules",
+    "indexes:deploy": "npx -y firebase-tools deploy --only firestore:indexes",
+    "categories:seed": "node scripts/seed-categories.mjs"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",
     "marked": "^15.0.7",

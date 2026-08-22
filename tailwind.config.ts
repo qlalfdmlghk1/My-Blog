@@ -18,10 +18,17 @@ const config: Config = {
         'ink-dim': 'var(--text-dim)',
       },
       fontFamily: {
-        sans: ['Pretendard Variable', 'Pretendard', 'system-ui', 'sans-serif'],
+        sans: [
+          'Tmoney Round Wind',
+          'Pretendard Variable',
+          'Pretendard',
+          'system-ui',
+          'sans-serif',
+        ],
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
-      maxWidth: { prose: '44rem', shell: '60rem' },
+      // shell 은 사이드바가 붙은 목록 화면, prose 는 글 본문 한 줄 길이
+      maxWidth: { prose: '44rem', shell: '76rem' },
     },
   },
   plugins: [],

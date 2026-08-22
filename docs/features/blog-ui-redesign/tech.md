@@ -1,0 +1,176 @@
+# blog-ui-redesign — tech 기록
+
+## [2026-08-22] 이미지 업로드를 Firebase Storage → Vercel Blob 으로 이전 (#4)
+
+**옮긴 이유**
+
+Firebase Storage 가 2024년부터 Blaze(종량제) 플랜을 요구한다. 이 블로그는 카드 등록 없이
+운영하는 것이 전제라, 이미지 한 축 때문에 프로젝트 전체를 종량제로 올릴 수 없었다.
+Vercel Blob 은 Hobby 플랜에서 카드 없이 무료 한도를 쓴다. 이미 Vercel 로 배포하고 있어
+스토어를 프로젝트에 연결하면 `BLOB_READ_WRITE_TOKEN` 이 배포본에 자동 주입된다.
+
+**파일이 서버를 지나가지 않는 구조 (client upload)**
+
+`/api/blob-upload` 는 **파일을 받지 않는다.** 브라우저가 Blob 으로 직접 올리고, 이 라우트는
+그 업로드를 허가하는 짧은 토큰만 내준다. 그렇게 한 이유가 둘이다.
+
+- 서버리스 함수의 요청 본문 상한(4.5MB)에 이미지가 걸리지 않는다
+- 함수는 `iad1`, 스토어는 `icn1` 이라 파일이 서버를 거치면 태평양을 두 번 건넌다.
+  브라우저 → `icn1` 직행이면 국내에서 올릴 때 한 번도 안 건넌다
+
+**권한 — 호출자를 신뢰하지 않는다**
+
+토큰 발급 경로가 열려 있으면 누구나 스토어에 쓸 수 있다. `handleUpload` 의
+`onBeforeGenerateToken` 에서 Firebase ID 토큰을 `clientPayload` 로 받아
+`verifyIdToken(token, true)` 로 검증하고 `admin` 커스텀 클레임을 확인한다.
+`checkRevoked: true` 라 로그아웃·계정 비활성화된 토큰은 걸러진다.
+클레임은 Firebase 가 서명한 토큰 안에 있어 클라이언트가 위조할 수 없다 —
+`/api/revalidate` 와 같은 방식이다.
+
+크기(5MB)·형식(이미지 5종) 제한도 **이 라우트가 정한다.** 클라이언트에서 거르면
+`upload()` 를 직접 호출해 우회할 수 있다.
+
+`addRandomSuffix: true` — 같은 파일명을 두 번 올려도 앞의 것을 덮어쓰지 않는다.
+
+**남는 것**
+
+- `onUploadCompleted` 는 비워 뒀다. 업로드 결과를 따로 기록하지 않는다.
+  로컬 개발에서는 Vercel 이 localhost 에 도달할 수 없어 호출되지 않는다.
+- 글을 지워도 Blob 파일은 남는다. 고아 파일 정리는 아직 없다.
+- `storage.rules` · `storageBucket` · `firebase/storage` import 를 전부 제거했다.
+  `firebase.json` 의 `storage` 항목도 뺐다 — 안 켠 프로젝트에서 배포가 깨진다.
+
+**곁다리 — `npm run dev` 가 `listen EFAULT` 로 죽던 문제**
+
+와일드카드 바인딩(`::`·`0.0.0.0`)이 간헐적으로 EFAULT 를 낸다. IPv6 전용 문제도, 포트
+충돌도 아니다 — 같은 프로세스에서 5회 반복하면 3승 2패처럼 갈린다. 특정 인터페이스
+주소(`127.0.0.1`, LAN IP)로는 항상 성공한다. 커널 레벨 네트워크 필터(백신·EDR·VPN)가
+소켓 호출에 끼어들 때 나타나는 양상이다. `dev:ipv4` 스크립트로 우회하되 **저장소
+기본값은 바꾸지 않았다** — 머신마다 다른 문제이고, 고정하면 같은 네트워크의 다른
+기기(휴대폰 등)에서 접속할 수 없다.
+
+---
+
+## [2026-08-22] 소분류(2단 분류)와 목록 페이지네이션 (#4)
+
+**소분류를 하위 컬렉션에 둔 이유 — `categories/{cat}/subcategories/{sub}`**
+
+최상위 컬렉션(`subcategories/{slug}`)이 아니라 카테고리 문서의 하위 컬렉션이다. 셋이다.
+
+- slug 유일성을 **카테고리 안에서만** 보장하면 된다. `프론트엔드/react` 와 `백엔드/react`
+  가 공존할 수 있다. 최상위였다면 전역 유일해야 해서 이름 선점 문제가 생긴다
+- 보안 규칙에서 `exists(.../categories/{cat}/subcategories/{sub})` **한 번**으로
+  "존재하는가"와 "그 카테고리 소속인가"를 동시에 검사한다. 소분류에 부모 필드를 두고
+  대조했다면 그 필드 자체가 위조 대상이 된다
+- 부모를 필드로 중복 저장하지 않는다 — **경로가 곧 소속이다**
+
+읽을 때는 `collectionGroup('subcategories')` 로 한 번에 훑는다. 카테고리마다 따로 읽으면
+카테고리 수만큼 왕복이 생긴다. 부모 slug 은 `ref.parent.parent.id` 로 경로에서 꺼낸다.
+
+**규칙에 재귀 match 를 따로 연 이유**
+
+중첩 `match` 는 **경로가 고정된** 읽기만 허용한다. `collectionGroup` 질의는 경로가 열려
+있어 그 match 로는 통과하지 못하므로 `match /{path=**}/subcategories/{subSlug}` 를 따로
+열었다. 쓰기는 열지 않는다 — 쓰기는 카테고리 하위 경로에서만 가능하다.
+
+**소분류를 규칙에서 필수로 만든 이유**
+
+화면에서만 강제하면 규칙을 우회한 쓰기로 분류 체계가 뚫린다. `validPost` 가
+`subcategory` 를 `hasAll` 에 넣고 `subcategoryExists()` 로 실재를 확인한다.
+`PostEditor.validate()` 가 같은 검사를 미리 하는 이유는 규칙에 걸리면 permissions 원문
+에러만 뜨고 무엇이 잘못됐는지 화면에 안 남기 때문이다.
+
+**태그를 트리에서 빼낸 이유**
+
+이전 사이드바는 태그를 카테고리 밑에 접어 넣어 소주제처럼 보이게 했다. 소분류가 생긴
+뒤로는 그 자리가 소분류의 것이고, 태그는 **계층이 아니라 카테고리를 가로지르는 축**이다
+(같은 `#ISR` 이 여러 카테고리 글에 붙는다). 계층 안에 넣으면 그 성질이 가려지므로
+트리 아래 별도 구역으로 옮겼다.
+
+`looseCount`(분류 없음)를 노출하는 이유: 소분류를 지운 뒤 남은 글은 어느 소분류에도
+안 잡힌다. 숨기면 카테고리 합계와 소분류 합계가 어긋나 보인다.
+
+**페이지네이션을 `?page=2` 가 아니라 `/page/2` 로 한 이유**
+
+Server Component 가 `searchParams` 를 읽으면 그 라우트는 **동적 렌더링으로 바뀐다.**
+목록 화면의 ISR 정적 생성이 통째로 사라지므로 경로 세그먼트를 쓴다.
+1페이지는 기준 URL(`/`, `/categories/x`)이 담당하고 `generateStaticParams` 는
+**2페이지부터**만 낸다 — `/page/1` 을 같이 열면 같은 내용이 두 주소로 잡힌다.
+
+`parsePageParam` 이 `/^[1-9][0-9]*$/` 만 통과시키는 것도 같은 이유다. `01`·`2.0`·`+2`·` 2`
+는 숫자로는 같은 페이지지만 **주소가 다르다.** 통과시키면 검색엔진에 중복 문서로 잡힌다.
+
+**목록 본문을 `components/lists/*` 로 뺀 이유**
+
+기준 URL 라우트와 `/page/[page]` 라우트가 같은 본문을 그린다. 라우트마다 따로 조립하면
+카드 한 줄을 고칠 곳이 두 군데가 되고, 1페이지와 2페이지 화면이 조금씩 어긋나기 시작한다.
+
+**`readPublishedPosts()` — 조회 실패와 "정말 0개"의 구분**
+
+폴백이 빈 배열이라 둘이 호출부에서 구분되지 않는다. 페이지네이션은 범위 밖이면 404 를
+내므로 그 둘을 섞으면 **일시 장애 한 번에 살아 있는 `/page/3` 이 404 로 굳고**
+revalidate 주기(1시간) 동안 그대로 남는다. `degraded` 면 404 대신 throw 해서 ISR 이
+직전 정적 페이지를 계속 서빙하게 한다. 분류의 `readCategories` 와 같은 이유·같은 형태다.
+여기서 `safeRead` 를 못 쓰는 이유는 fallback 인자가 즉시 평가돼 실패 여부를 표시할 수 없어서다.
+
+**재생성 경로를 `/page/N` 까지 넓힌 이유**
+
+목록의 1페이지만 갱신하면 부족하다. 글 한 편이 늘면 그 아래 페이지 내용이 통째로 한 칸씩
+밀린다. 목록마다 현재 페이지 수를 세어 `/page/N` 을 함께 무효화한다. 소분류 목록은
+**전량** 갱신한다 — 글의 소분류가 바뀌면 떠난 쪽과 도착한 쪽 두 화면이 동시에 낡는데,
+어느 쪽이 바뀌었는지는 그 요청만 봐서는 알 수 없다.
+
+**곁다리 — stretched link**
+
+글 카드와 관리 목록 행은 제목 글자만 링크라 과녁이 좁았다. `<div onClick>` 대신 제목
+`<Link>` 의 `::after` 를 카드 전체로 늘렸다. 링크는 여전히 하나뿐이라 새 탭 열기·키보드
+포커스·스크린리더 링크 목록이 그대로 살아 있다. 목적지가 다른 요소(태그 칩, "보기 ↗")는
+`relative z-10` 으로 그 위에 올린다.
+
+---
+
+## [2026-08-23] 업로드 토큰에서 Firebase ID 토큰 떼어내기 (#4)
+
+**증상이 아니라 구조의 문제였다**
+
+`/api/blob-upload` 는 관리자 검증용으로 Firebase ID 토큰을 `clientPayload` 로 받는다.
+그런데 `@vercel/blob` 은 `onBeforeGenerateToken` 이 `tokenPayload` 를 돌려주지 않으면
+**`clientPayload` 를 그대로 승계한다**(`dist/client.js:258`).
+
+```js
+const tokenPayload = payload.tokenPayload ?? clientPayload;
+...
+onUploadCompleted: callbackUrl ? { callbackUrl, tokenPayload } : void 0,
+```
+
+그 결과 admin 클레임이 든 베어러 자격증명이
+
+1. 서명된 client token 안에 실려 Vercel Blob API 로 전송되고
+2. 업로드 완료 웹훅 본문(`tokenPayload`)에 **평문으로 되돌아온다**
+
+Blob 요청 로그 · 함수 로그 · 옵저버빌리티 어느 한 곳이 본문을 남기면, 그걸 읽는 사람이
+그대로 `Authorization: Bearer` 로 `/api/revalidate` 를 부르고 Firestore 에 관리자 권한으로
+쓸 수 있다. **우리가 필요로 하지도 않는 제3자 경로에 관리자 자격증명을 넘기고 있었다.**
+
+**로컬에서는 안 보였다**
+
+`callbackUrl` 은 `onUploadCompleted` 가 있을 때만 만들어지고(`client.js:261`), 그 값은
+`getCallbackUrl(request)` 가 프로덕션(`VERCEL=1`)에서만 해석한다. 로컬은 undefined 라
+`onUploadCompleted: void 0` 로 떨어져 증상이 나타나지 않는다 — **배포본에서만 생기는 노출**이었다.
+
+**고친 방법**
+
+비어 있던 `onUploadCompleted` 를 **지웠다.** 업로드 결과를 기록할 일이 없어 본문이 no-op
+이었는데, 그 훅의 존재만으로 위 경로가 열려 있었다. 지우면 `callbackUrl` 이 undefined 로
+남아 토큰 페이로드도, 공개 콜백 경로도 함께 사라진다.
+
+덧붙여 `onBeforeGenerateToken` 반환값에 `tokenPayload: ''` 를 명시했다. 지금은 쓰이지
+않지만 나중에 콜백을 되살리는 사람이 같은 함정을 밟지 않게 하는 방어선이다.
+**`null` 은 오답이다** — `??` 에 걸려 `clientPayload` 로 되살아난다.
+
+**남는 것 — `clientPayload` 자리가 애초에 맞는가**
+
+`@vercel/blob` 의 `upload()` 는 handleUpload 라우트 호출에 붙일 `headers` 를 정식으로
+지원한다(`client.d.ts:168`). `/api/revalidate` 는 이미 `Authorization: Bearer` 로 같은
+검증을 하고 있어 형태도 그쪽이 맞다. 이번에는 유출 경로만 닫고, 자격증명을 헤더로
+옮기는 변경은 인증 경로 수정이라 후속으로 남긴다.

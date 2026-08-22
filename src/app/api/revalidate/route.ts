@@ -2,6 +2,14 @@ import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
 
 import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
+import { getCategories, getSubcategories } from '@/lib/categories.server';
+import { countPages, pageHref } from '@/lib/pagination';
+import {
+  filterPostsBySubcategory,
+  filterPostsByTag,
+  getPostsByCategory,
+  getPublishedPosts,
+} from '@/lib/posts';
 
 /**
  * 발행 / 수정 / 삭제 후 해당 정적 경로만 재생성한다.
@@ -45,15 +53,73 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: '본문을 읽을 수 없습니다.' }, { status: 400 });
   }
 
+  const strings = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+
   const slug = typeof body.slug === 'string' ? body.slug : '';
-  const tags = Array.isArray(body.tags) ? body.tags.filter((t): t is string => typeof t === 'string') : [];
+  const tags = strings(body.tags);
 
   // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다
   const paths = ['/', '/rss.xml', '/sitemap.xml'];
-  if (slug) paths.push(`/posts/${slug}`);
-  for (const tag of tags) paths.push(`/tags/${encodeURIComponent(tag)}`);
+  // slug·태그에 한글을 허용하므로 실제 요청 경로는 퍼센트 인코딩된 형태다.
+  // 어느 표기가 캐시 키인지 실측하지 않았으므로 두 표기를 모두 무효화한다 —
+  // 존재하지 않는 경로의 revalidatePath 는 무동작이라 넣어도 손해가 없고,
+  // 빠뜨리면 '발행했는데 목록이 안 바뀐다'가 조용히 발생한다.
+  const pushPath = (p: string) => {
+    paths.push(p);
+    const encoded = p.split('/').map(encodeURIComponent).join('/');
+    if (encoded !== p) paths.push(encoded);
+  };
+  if (slug) pushPath(`/posts/${slug}`);
 
-  for (const path of paths) revalidatePath(path);
+  /**
+   * 목록은 1페이지만 갱신해서는 부족하다 — 글 한 편이 늘면 그 아래 페이지의 내용이
+   * 통째로 한 칸씩 밀린다. 목록마다 현재 페이지 수를 세어 `/page/N` 까지 함께 무효화한다.
+   * (빠뜨리면 '발행했는데 2페이지가 재검증 주기 동안 안 바뀐다'가 조용히 발생한다)
+   */
+  const posts = await getPublishedPosts();
+  const pushList = (base: string, count: number) => {
+    // 한 칸 더 돈다. 변경 **이후** 글 수로 페이지를 세므로, 페이지가 줄어드는 변경
+    // (삭제 · 내림 · 분류 이동)에서는 없어진 마지막 페이지가 루프 밖으로 빠진다 —
+    // 그 경로는 정적 캐시에 남아 사라진 글을 재검증 주기 동안 계속 보여준다.
+    // 없는 경로의 revalidatePath 는 무동작이라 한 칸 여유를 두는 편이 싸다.
+    for (let page = 2; page <= countPages(count) + 1; page += 1) {
+      pushPath(pageHref(base, page));
+    }
+  };
 
-  return NextResponse.json({ revalidated: paths });
+  pushList('/', posts.length);
+  for (const tag of tags) {
+    pushPath(`/tags/${tag}`);
+    pushList(`/tags/${tag}`, filterPostsByTag(posts, tag).length);
+  }
+
+  // 카테고리는 글이 속한 것만 갱신하면 부족하다 — 사이드바가 카테고리별 글 수를
+  // 모든 목록 화면에 함께 렌더하므로, 한 편만 발행해도 나머지 화면의 숫자가 낡는다.
+  // 카테고리 수는 사람이 관리 화면에서 늘리는 값이라 실질적으로 十수 개를 넘지 않는다.
+  const [categories, subcategories] = await Promise.all([
+    getCategories(),
+    getSubcategories(),
+  ]);
+  for (const category of categories) {
+    pushPath(`/categories/${category.slug}`);
+    pushList(
+      `/categories/${category.slug}`,
+      (await getPostsByCategory(category.slug, posts)).length,
+    );
+  }
+  // 소분류 목록도 전량 갱신한다 — 글 한 편의 소분류가 바뀌면 떠난 쪽과 도착한 쪽
+  // 두 화면이 동시에 낡고, 어느 쪽이 바뀌었는지는 이 요청만 봐서는 알 수 없다.
+  for (const sub of subcategories) {
+    pushPath(`/categories/${sub.category}/${sub.slug}`);
+    pushList(
+      `/categories/${sub.category}/${sub.slug}`,
+      filterPostsBySubcategory(posts, sub.category, sub.slug).length,
+    );
+  }
+
+  const unique = [...new Set(paths)];
+  for (const path of unique) revalidatePath(path);
+
+  return NextResponse.json({ revalidated: unique });
 }

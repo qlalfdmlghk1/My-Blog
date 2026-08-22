@@ -1,8 +1,10 @@
 import { ImageResponse } from 'next/og';
 
 import { OgCard, OG_CONTENT_TYPE, OG_SIZE, loadOgFont } from '@/lib/og';
+import { getCategoryBySlug } from '@/lib/categories.server';
 import { getPostBySlug } from '@/lib/posts';
 import { SITE } from '@/lib/site';
+import { decodeSlugParam } from '@/lib/slug';
 
 export const alt = '글 미리보기';
 export const size = OG_SIZE;
@@ -17,7 +19,8 @@ export const contentType = OG_CONTENT_TYPE;
  */
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = await getPostBySlug(slug);
+  const post = await getPostBySlug(decodeSlugParam(slug));
+  const category = post ? await getCategoryBySlug(post.category) : null;
 
   const date = post?.publishedAt
     ? new Intl.DateTimeFormat('ko-KR', {
@@ -32,7 +35,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     (
       <OgCard
         title={post?.title ?? SITE.name}
-        category={post?.category}
+        category={category}
         tags={post?.tags ?? []}
         date={date}
       />

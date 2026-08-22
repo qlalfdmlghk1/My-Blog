@@ -79,7 +79,13 @@ export async function POST(request: Request): Promise<NextResponse> {
    */
   const posts = await getPublishedPosts();
   const pushList = (base: string, count: number) => {
-    for (let page = 2; page <= countPages(count); page += 1) pushPath(pageHref(base, page));
+    // 한 칸 더 돈다. 변경 **이후** 글 수로 페이지를 세므로, 페이지가 줄어드는 변경
+    // (삭제 · 내림 · 분류 이동)에서는 없어진 마지막 페이지가 루프 밖으로 빠진다 —
+    // 그 경로는 정적 캐시에 남아 사라진 글을 재검증 주기 동안 계속 보여준다.
+    // 없는 경로의 revalidatePath 는 무동작이라 한 칸 여유를 두는 편이 싸다.
+    for (let page = 2; page <= countPages(count) + 1; page += 1) {
+      pushPath(pageHref(base, page));
+    }
   };
 
   pushList('/', posts.length);

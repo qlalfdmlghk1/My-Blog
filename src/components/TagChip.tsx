@@ -41,7 +41,12 @@ export function TagChip({
     );
   }
   return (
-    <Link href={href} className={className} style={style}>
+    <Link
+      href={href}
+      aria-current={active ? 'page' : undefined}
+      className={className}
+      style={style}
+    >
       {body}
     </Link>
   );

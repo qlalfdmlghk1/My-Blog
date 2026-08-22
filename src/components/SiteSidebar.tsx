@@ -78,7 +78,7 @@ export function SiteSidebar({
                   muted={c.count === 0}
                 />
 
-                {open && c.subs.length > 0 && (
+                {open && (c.subs.length > 0 || c.looseCount > 0) && (
                   <ul className="ml-3 mt-0.5 space-y-px border-l border-line pl-2">
                     {c.subs.map((s) => (
                       <li key={s.slug}>

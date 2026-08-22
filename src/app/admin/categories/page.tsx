@@ -184,6 +184,11 @@ export default function AdminCategoriesPage() {
   async function remove(category: Category) {
     const count = counts.get(category.slug) ?? 0;
     if (count > 0) return; // 버튼이 이미 잠겨 있다. 방어적으로 한 번 더 막는다
+    // Firestore 는 문서를 지워도 하위 컬렉션을 지우지 않는다. 소분류를 남긴 채
+    // 카테고리를 지우면 그 문서들이 고아로 남아 collectionGroup 조회에 계속 잡히고,
+    // sitemap 과 프리렌더가 404 로만 열리는 주소를 광고한다. 관리 화면은 소분류를
+    // 카테고리 카드 안에서만 그리므로 부모가 사라지면 화면에서 지울 수조차 없다.
+    if (subsOf(category.slug).length > 0) return;
     if (!window.confirm(`"${category.name}" 카테고리를 삭제합니다. 되돌릴 수 없습니다.`)) return;
 
     setBusy('삭제 중…');
@@ -526,12 +531,20 @@ export default function AdminCategoriesPage() {
                       수정
                     </button>
                     {/* 글이 있으면 삭제를 잠근다 — 지우면 그 글들이 존재하지 않는
-                        카테고리를 가리키게 되고, 사이드바에서 사라져 찾을 수 없다 */}
+                        카테고리를 가리키게 되고, 사이드바에서 사라져 찾을 수 없다.
+                        소분류도 같은 이유로 막는다: 하위 컬렉션은 부모를 지워도 남아
+                        고아가 되고, 여기서만 그려지므로 지울 방법이 사라진다 */}
                     <button
                       type="button"
                       className="text-ink-dim enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-                      disabled={count > 0 || Boolean(busy)}
-                      title={count > 0 ? `글 ${count}편을 먼저 다른 카테고리로 옮기세요` : undefined}
+                      disabled={count > 0 || subsOf(c.slug).length > 0 || Boolean(busy)}
+                      title={
+                        count > 0
+                          ? `글 ${count}편을 먼저 다른 카테고리로 옮기세요`
+                          : subsOf(c.slug).length > 0
+                            ? `소분류 ${subsOf(c.slug).length}개를 먼저 지우세요`
+                            : undefined
+                      }
                       onClick={() => void remove(c)}
                     >
                       삭제

@@ -612,3 +612,75 @@
 **다음 작업**
 
 - PR #5 업데이트 → `/review-converge` 2라운드
+
+---
+
+### Commit — 2026-08-22 15:40
+
+- Message: `Fix:#4 리뷰 수렴 2라운드 — 재생성 누락·고아 소분류·업로드 오류 문구·접근성 회귀`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약** (/review-converge 라운드 1 자동 반영 8건 · Blocker 0건)
+
+- `/api/revalidate` `pushList` 가 한 칸 더 돈다 — 변경 **이후** 글 수로 페이지를 세던 탓에
+  글을 지워 페이지가 줄면 사라진 마지막 페이지가 루프 밖으로 빠졌다. 그 경로가 정적 캐시에
+  남아 삭제된 글을 재검증 주기(1시간) 동안 계속 200 으로 서빙했다
+- 카테고리 삭제에 소분류 가드 — Firestore 는 문서를 지워도 하위 컬렉션을 지우지 않는다.
+  소분류를 남긴 채 지우면 고아가 `collectionGroup` 조회에 계속 잡혀 **sitemap 과 프리렌더가
+  404 로만 열리는 주소를 광고**하고, 관리 화면은 부모 카드 안에서만 그리므로 지울 수도 없었다
+- 사이드바 "분류 없음"이 `subs.length > 0` 안에 중첩돼 있어, **소분류가 0개인 카테고리에서는
+  숨었다** — 마이그레이션 대상 글이 가장 많은 상태에서 정확히 안 보였다
+- `uploadImage()` 가 실패를 한국어로 되짚는다. `@vercel/blob` 이 non-2xx 응답 **본문을 읽지
+  않고** 고정 문구 `Failed to  retrieve the client token` 만 던져, 라우트가 준비한
+  자격증명 누락·권한 부족·로그인 만료 구분이 화면에 하나도 도달하지 못했다
+- `safeFileName()` 이 확장자를 먼저 뗀다 — `사진.png` → `.png` 가 빈 문자열이 아니라서
+  기본값 폴백이 발동하지 않고 경로가 `posts/.png` 가 됐다(한글 파일명 = 가장 흔한 경우)
+- `TagChip` 에 `aria-current` 복원 — 삭제된 `TagRow` 에 있던 것이 이번 개편에서 빠져,
+  스크린리더가 사이드바에서 현재 태그를 알 수 없었다(같은 커밋의 `Pagination` 은 정상)
+- `SubcategoryList` 상위 분류 링크를 `next/link` 로 + `encodeURIComponent` — 혼자 `<a>` 라
+  전체 리로드가 일어났고 같은 파일 안에서 인코딩 표기가 갈려 있었다
+- 페이지 라우트 canonical 을 `encodeURIComponent` 로 통일 — `Pagination` 이 만드는 주소와
+  갈려 한글 slug 에서 두 문자열이 달랐다. `ListShell` 주석의 "세 화면"도 넷으로 정정
+
+**결정 로그**
+
+- 4 페르소나 모두 **Blocker 0건**. 자동 반영은 여러 페르소나가 독립적으로 같은 결함을 짚었고
+  수정이 국소적인 것만으로 한정했다
+- **자동 반영하지 않은 것**은 아래 "남긴 항목" 참조 — 보안 Medium 2건, 인증 경로 변경,
+  읽기 계층 시그니처 변경, 정책 판단 5건. 전부 사람 확인 대상
+
+**남긴 항목 (사람 확인 필요)**
+
+- 🔴 **`clientPayload` 로 보낸 Firebase ID 토큰이 Blob 웹훅 본문으로 되돌아온다** —
+  `@vercel/blob` 이 `tokenPayload` 미지정 시 `clientPayload` 를 승계한다. 빈 `onUploadCompleted`
+  를 지우면 `callbackUrl` 이 undefined 가 되어 함께 사라진다. 인증 경로 변경이라 미반영
+- 🔴 **소분류 조회 실패가 `degraded` 로 전달되지 않는다** — `getSubcategories()` 가 `[]` 로
+  삼켜, `/categories/{cat}/{sub}` 가 일시 장애에 404 로 굳는다(`readCategories`/`readPublishedPosts`
+  가 막으려던 바로 그 상황). `readSubcategories` 신설 + `getCategoryTree` 시그니처 변경 필요
+- **`degraded` 인데 1페이지는 항상 통과한다** — `countPages(0) === 1` 이라 홈이 조회 실패에도
+  "아직 발행된 글이 없습니다"를 캐시한다. 다만 `degraded` 조기 throw 는 자격증명 없는 환경의
+  **빌드를 통째로 깨뜨려** `safe-read.ts` 정책과 충돌한다 — 배포 파이프라인 정책 판단 필요
+- **목록 화면 하나가 Firestore 를 2~5회 읽는다** — `React.cache()` 미사용. 아키텍트는
+  `known` 인자를 늘리는 대신 읽기 함수를 `cache()` 로 감싸라고 제안(호출부 무수정)
+- **`revalidateTaxonomy()` 가 `/posts/*` 를 빠뜨린다** — 카테고리 이름·색을 고쳐도 글 상세
+  배지가 1시간 낡는다. 전량 재생성 비용과 얽혀 정책 판단
+- **글 slug 을 바꾸면 옛 `/posts/{old}` 가 1시간 남는다** — 태그는 합집합을 보내면서 slug 은
+  새 값만 보낸다. 요청 형태를 `slugs[]` 로 넓힐지 판단 필요
+- **재귀 match `/{path=**}/subcategories/{subSlug}` 가 공개 읽기로 열려 있다** — 현재 추가
+  노출은 없으나, 다른 경로에 동명 컬렉션이 생기면 규칙 수정 없이 공개된다. 클라이언트
+  collectionGroup 호출처가 관리 화면 둘뿐이라 `isAdmin()` 으로 좁힐 수 있다(규칙 재배포 필요)
+- **`dynamicParams = true` 목록 경로가 무인증 Firestore 읽기 증폭에 열려 있다** —
+  레이트 리밋 없음. 라우팅·캐시 정책 판단
+- **삭제된 `storage.rules` 의 배포본이 Firebase 에 그대로 살아 있다** — 정본이 저장소에서
+  사라져 감사 불가. 콘솔에서 닫을지 결정 필요
+- **소분류 slug `page` 예약어 가드 없음** — 주석은 막아야 한다고 적었으나 구현 없음.
+  QA 는 세그먼트 수가 달라 실제로는 가려지지 않는다고 분석. 실측 후 주석/가드 결정
+- 마크다운 링크 스킴 검사(`javascript:`)·CSP 부재 — self-XSS 수준, 이번 변경 범위 밖
+- stretched link 로 카드 텍스트 드래그 선택 불가 — UX 트레이드오프 판단
+- 소분류가 없는 카테고리에서 **임시저장조차 막혀** 작성 중인 글을 남길 수 없다 — 탈출구 설계
+- 죽은 설정 둘: `next.config.ts` 의 Storage `remotePatterns`, `firestore.indexes.json` 의 tags 색인
+
+**다음 작업**
+
+- 남긴 항목 중 🔴 두 건 우선 판단

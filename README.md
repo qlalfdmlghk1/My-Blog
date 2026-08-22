@@ -6,7 +6,7 @@
 
 | | |
 |---|---|
-| Stack | Next.js 15 (App Router) · TypeScript · Tailwind CSS · Firebase(Auth/Firestore/Storage) |
+| Stack | Next.js 15 (App Router) · TypeScript · Tailwind CSS · Firebase(Auth/Firestore) · Vercel Blob |
 | Deploy | Vercel (ISR) |
 | Role | 기획 · 디자인 · 개발 · 배포 (100% 단독) |
 
@@ -25,10 +25,23 @@ npm run dev
 | 스크립트 | 설명 |
 |---|---|
 | `npm run dev` | 개발 서버 |
+| `npm run dev:ipv4` | 개발 서버 — IPv4(`127.0.0.1`)에 고정. 아래 참고 |
 | `npm run build` | 프로덕션 빌드 |
 | `npm start` | 빌드 결과 서빙 |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
+| `npm run admin:claim` | 관리자 커스텀 클레임 부여 (`-- --revoke`로 회수) |
+| `npm run rules:deploy` | Firestore 보안 규칙 배포 |
+| `npm run indexes:deploy` | Firestore 색인 배포 |
+| `npm run categories:seed` | 예시 카테고리 심기 (선택) |
+
+> **`npm run dev`가 `listen EFAULT: bad address ... :::3000`으로 죽는다면** `npm run dev:ipv4`를 쓴다.
+>
+> 원인은 **와일드카드 바인딩(`::`·`0.0.0.0`)이 간헐적으로 EFAULT를 내는 것**이다. IPv6 전용 문제가 아니고 포트 충돌도 아니다 —
+> 같은 프로세스에서 5회 반복하면 3회 성공 / 2회 실패처럼 갈린다. 특정 인터페이스 주소(`127.0.0.1`, LAN IP)로는 항상 성공하므로,
+> 루프백에 고정하는 `dev:ipv4`가 이 증상을 피해 간다. 커널 레벨 네트워크 필터(백신·EDR·VPN)가 소켓 호출에 끼어들 때 나타나는 양상이다.
+>
+> 저장소 기본값(`dev`)을 IPv4로 고정하지 않은 이유: 머신마다 다른 문제이고, 고정하면 같은 네트워크의 다른 기기(휴대폰 등)에서 접속할 수 없다.
 
 ## 구조
 
@@ -48,14 +61,19 @@ src/
 │   ├── rss.xml/route.ts          RSS
 │   ├── sitemap.ts / robots.ts    sitemap.xml / robots.txt
 │   ├── opengraph-image.tsx       사이트 기본 OG
+│   ├── api/blob-upload/route.ts  이미지 업로드 토큰 발급 (관리자 검증)
 │   ├── posts/[slug]/opengraph-image.tsx   글별 OG (제목·카테고리·태그)
 │   └── globals.css               무채색 스케일 + 본문 타이포 (카테고리 색은 여기 없음)
 ├── components/
-│   ├── CategoryBadge · TagChip · PostCard · TagFilter
+│   ├── CategoryBadge · TagChip · PostCard
+│   ├── ListShell · SiteSidebar · SiteIntro · PostToc
 │   ├── SiteHeader · SiteFooter · ThemeToggle
 │   └── admin/AuthGuard · PostEditor
 ├── lib/
-│   ├── categories.ts             카테고리 6종 + 색 hex (단일 진실 공급원)
+│   ├── palette.ts               색 슬롯 12종 (색 hex 의 단일 진실 공급원)
+│   ├── categories.ts            카테고리 기본값 + 이름 판정 유틸
+│   ├── categories.server.ts     카테고리 읽기 (Admin SDK)
+│   ├── categories.client.ts     카테고리 CRUD (관리 화면)
 │   ├── category-css.ts           위 값에서 CSS 변수 생성
 │   ├── og.tsx                    OG 카드 레이아웃 + 한글 폰트 로딩
 │   ├── posts.ts                  서버 조회 (firebase-admin)
@@ -85,7 +103,6 @@ src/
 | `apiKey` | `NEXT_PUBLIC_FIREBASE_API_KEY` |
 | `authDomain` | `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` |
 | `projectId` | `NEXT_PUBLIC_FIREBASE_PROJECT_ID` |
-| `storageBucket` | `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` |
 | `messagingSenderId` | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` |
 | `appId` | `NEXT_PUBLIC_FIREBASE_APP_ID` |
 
@@ -103,13 +120,9 @@ Authentication → 시작하기 → **이메일/비밀번호** 사용 설정 →
 
 Firestore Database → 데이터베이스 만들기 → **프로덕션 모드** → 리전 `asia-northeast3`(서울).
 
-> 테스트 모드로 만들면 30일 후 전부 차단된다. 어차피 6단계에서 규칙을 덮어쓰므로 프로덕션 모드로 시작한다.
+> 테스트 모드로 만들면 30일 후 전부 차단된다. 어차피 7단계에서 규칙을 덮어쓰므로 프로덕션 모드로 시작한다.
 
-### 5. Storage
-
-Storage → 시작하기 → 프로덕션 모드 → Firestore와 **같은 리전**.
-
-### 6. 서버 자격증명 (Admin SDK)
+### 5. 서버 자격증명 (Admin SDK)
 
 프로젝트 설정 → **서비스 계정** → "새 비공개 키 생성" → JSON 다운로드. 그 JSON에서 세 값을 꺼낸다.
 
@@ -127,7 +140,7 @@ FIREBASE_ADMIN_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nMIIE...\n-----END PRIVA
 
 > 이 JSON은 **저장소에 넣지 않는다.** 유출되면 보안 규칙을 통째로 우회당한다. `.gitignore`가 `.env.local`을 막고 있지만 JSON 파일 자체를 프로젝트 폴더에 두지 않는 게 안전하다.
 
-### 7. 관리자 클레임 부여
+### 6. 관리자 클레임 부여
 
 ```bash
 npm run admin:claim
@@ -141,17 +154,47 @@ npm run admin:claim
 
 > 이미 로그인한 브라우저는 토큰이 갱신돼야 클레임을 인식한다. `hasAdminClaim()`이 `getIdTokenResult(true)`로 강제 갱신하므로 새로고침이면 충분하다.
 
-### 8. 규칙 · 색인 배포
+### 7. 규칙 · 색인 배포
 
 ```bash
 npx firebase login
 npx firebase use --add          # 위에서 만든 프로젝트 선택
-npm run rules:deploy
+npm run rules:deploy            # 보안 규칙
+npm run indexes:deploy          # 복합 색인
 ```
+
+규칙과 색인을 한 명령으로 묶지 않는다. 묶으면 색인 단계가 실패했을 때 **규칙이 릴리스되기 전에 멈춘다** — 로그에 `uploading rules` 만 찍히고 `released rules` 가 없으면 아직 적용되지 않은 것이다. 보안 경계를 여는 쪽이 부수 작업의 일시 오류에 볼모로 잡히면 안 된다.
+
 
 색인 배포를 빠뜨리면 글을 넣는 순간 목록 쿼리가 `FAILED_PRECONDITION`으로 실패한다. `getPublishedPosts()`(status + publishedAt)와 `getPostsByTag()`(status + tags + publishedAt)가 복합 색인을 요구하기 때문이다 — 정의는 `firestore.indexes.json`에 있다. 색인 생성은 몇 분 걸린다.
 
-### 9. 확인
+**규칙 배포는 코드 배포와 별개다.** Vercel이 아니라 Firebase로 나가며, 배포하는 순간 로컬·프리뷰·프로덕션이 전부 새 규칙을 적용받는다. 그래서 새 규칙을 요구하는 코드를 올리기 **전에** 규칙을 먼저 배포해야 한다. 순서가 뒤바뀌면 배포본이 `Missing or insufficient permissions.`를 낸다.
+
+### 이미지 업로드 (Vercel Blob)
+
+에디터의 이미지 붙여넣기·커버 업로드는 **Firebase Storage가 아니라 Vercel Blob**을 쓴다. Firebase Storage는 2024년부터 Blaze(종량제) 플랜을 요구해 카드 등록이 필요한데, Vercel Blob은 Hobby 플랜에서 카드 없이 무료 한도를 쓸 수 있다.
+
+1. Vercel 대시보드 → **Storage** → **Create Database** → **Blob**
+2. Access는 **Public** — 발행된 글에 `<img>`로 박히므로 방문자가 토큰 없이 읽어야 한다
+3. Region은 **icn1(서울)** 권장 — 파일이 브라우저에서 스토어로 직행하므로 국내에서 올릴 때 가장 가깝다
+4. **Connect to Project**로 프로젝트에 연결 → 배포본에 `BLOB_READ_WRITE_TOKEN`이 자동 주입된다
+5. 로컬 개발용으로 같은 토큰을 `.env.local`에 한 줄 추가한다
+
+> `vercel env pull`은 쓰지 말 것. `.env.local`을 Vercel에 등록된 값들로 **덮어써서** 로컬에만 있는 `FIREBASE_ADMIN_*`·`ADMIN_UID`가 날아간다. 대시보드에서 토큰만 복사해 붙이는 편이 안전하다.
+
+### 카테고리 만들기
+
+카테고리는 Firestore에 있고 **코드에 기본값이 없다.** 배포 직후에는 0개로 시작하며, `/admin/categories`에서 직접 만든다.
+
+v1의 여섯 개(성능·프론트엔드·아키텍처·트러블슈팅·개발 환경·회고)로 시작하고 싶으면 예시를 심는 스크립트가 있다. **선택 사항이다.**
+
+```bash
+npm run categories:seed
+```
+
+목록은 `scripts/seed-categories.mjs`에만 있으니 자기 분류로 고쳐서 심어도 된다. 이미 있는 문서는 건드리지 않는다 (관리 화면에서 고쳐둔 값이 되돌아가지 않게).
+
+### 8. 확인
 
 ```bash
 npm run dev
@@ -169,14 +212,25 @@ npm run dev
 | `title` | string | |
 | `content` | string | 마크다운 원문 |
 | `excerpt` | string | 비우면 본문에서 자동 생성 |
-| `category` | string | 6종 중 하나 · 정확히 1개 |
+| `category` | string | `categories` 문서의 slug · 정확히 1개. 규칙이 `exists()`로 실재를 확인한다 |
 | `tags` | string[] | 색 없음 · 자유 · 최대 20개 |
-| `coverImage` | string \| null | Storage 다운로드 URL |
+| `coverImage` | string \| null | Vercel Blob 공개 URL |
 | `status` | `draft` \| `published` | |
 | `createdAt` / `updatedAt` | Timestamp | |
 | `publishedAt` | Timestamp \| null | 최초 발행 시점만 기록 |
 
 조회수는 v2로 유예 (Firestore 쓰기 비용 · 봇 카운팅 문제).
+
+`categories/{slug}` — 문서 ID가 곧 slug다(별도 필드 없음)
+
+| 필드 | 타입 | 비고 |
+|---|---|---|
+| `name` | string | 화면에 보이는 이름 |
+| `hint` | string | 사이드바 툴팁 · 카테고리 페이지 부제 |
+| `palette` | string | `lib/palette.ts`의 슬롯 ID 12종 중 하나 |
+| `order` | number | 사이드바 정렬. 작을수록 위 |
+
+읽기는 공개다 — 사이드바가 로그인 없이 읽는다. 쓰기는 admin 클레임만.
 
 > **slug 유일성은 클라이언트 검사에 의존한다.** `firestore.rules`의 `validPost()`는 타입·길이만 보고 유일성은 검사하지 않으며, 검사와 쓰기 사이에 TOCTOU도 열려 있다. 작성자가 1명이라 실무 위험은 낮지만 서버 보장은 아니다. 보장이 필요해지면 문서 ID를 slug로 쓰거나 `slugs/{slug}` 유일성 문서를 두는 방식을 검토할 것.
 
@@ -221,9 +275,13 @@ Shiki는 `defaultColor: false` + 2개 테마로 출력해 `--shiki-light`/`--shi
 
 색은 장식이 아니라 **길찾기**. 무채색이 화면의 90%를 담당하고 색은 분류에만 등장한다.
 
-- **카테고리** — 색 있음 · 6개 고정 · 글 1개당 1개. 색 hex를 포함한 정의는 [src/lib/categories.ts](src/lib/categories.ts) **한 곳**에만 있다. 카테고리를 추가할 때 고칠 파일은 이것뿐이다.
-  - 화면용 CSS 변수(`--cat-{slug}-{bg,fg}`)는 [category-css.ts](src/lib/category-css.ts)가 그 값에서 생성해 `layout.tsx`가 `<style>`로 주입한다
-  - OG 이미지는 satori가 CSS 변수를 해석하지 못하므로 같은 객체를 TS에서 직접 읽는다 (`categoryLightColor()`)
+- **카테고리** — 색 있음 · 글 1개당 1개. **관리 화면(`/admin/categories`)에서 만든다.** 정본은 Firestore `categories` 컬렉션이고 문서 ID 가 곧 slug다. 색은 [src/lib/palette.ts](src/lib/palette.ts)의 슬롯 12개 중에서 고르며, 카테고리 문서에는 hex가 아니라 슬롯 ID만 저장한다 — 슬롯마다 라이트/다크 2벌과 대비 4.5:1이 이미 맞춰져 있어 어떤 조합을 골라도 화면이 깨지지 않는다.
+  - slug는 만들 때 한 번 정하고 바꾸지 않는다. 바꾸면 발행된 카테고리 URL과 글의 참조가 함께 끊긴다.
+  - 글이 남아 있는 카테고리는 삭제할 수 없다 (관리 화면이 버튼을 잠근다).
+  - **코드에 기본 카테고리가 없다.** 폴백을 두면 관리 화면에서 전부 지워도 되살아나 "처음부터 내가 짠다"가 불가능해진다. 비어 있으면 비어 있는 대로 두고 화면이 빈 상태를 안내한다.
+  - 존재하지 않는 카테고리를 참조하는 글이 있으면 `/admin/categories`가 그 slug와 글 수를 알려준다 — 사이드바에서는 안 보이고 목록에는 보여서 놓치기 쉽다.
+  - 화면용 CSS 변수(`--pal-{slot}-{bg,fg}`)는 [category-css.ts](src/lib/category-css.ts)가 팔레트에서 생성해 `layout.tsx`가 `<style>`로 주입한다. 카테고리별이 아니라 **슬롯별**로 까는 것이 요점이다 — 슬롯 목록이 정적이라 이 문자열이 빌드 시점에 확정되고, 루트 레이아웃이 Firestore 조회에 엮이지 않는다
+  - OG 이미지는 satori가 CSS 변수를 해석하지 못하므로 같은 값을 TS에서 직접 읽는다 (`paletteLightColor()`)
   - 처음에는 `globals.css`에도 hex를 적어뒀지만, OG 이미지가 같은 값을 필요로 하면서 정의처가 둘이 됐다. 언젠가 어긋날 중복이라 CSS를 파생시키는 쪽으로 바꿨다
 - **태그** — 색 없음(회색) · 자유롭게 여러 개
 - 파스텔은 배경에만, 글자는 같은 계열의 진한 값 — 연한 배경 + 회색 글자는 대비 미달이고 A11y 95+ 목표와 직결된다
@@ -248,9 +306,12 @@ Vercel — GitHub 연동 자동 배포. 프로젝트 설정에 `.env.example`의
 ## 남은 작업
 
 - [x] 블로그 이름 → `CHOI's BLOG` ([src/lib/site.ts](src/lib/site.ts))
-- [ ] 한 줄 소개 · author 는 임시값 — 검색 결과 요약과 OG 카드에 그대로 노출되므로 교체 필요
-- [ ] 도메인 확정 후 `NEXT_PUBLIC_SITE_URL`
-- [ ] Firebase 프로젝트 연결 (`.env.local` + 보안 규칙 `TODO_ADMIN_UID` 2곳)
+- [x] 한 줄 소개 · author 확정 ([src/lib/site.ts](src/lib/site.ts))
+- [ ] 도메인 확정 후 `NEXT_PUBLIC_SITE_URL` — 커스텀 도메인 예정이라 보류. 지금은
+      `VERCEL_PROJECT_PRODUCTION_URL` 폴백으로 동작한다. 도메인 연결 시점에 함께 등록해야
+      canonical·RSS guid가 한 번만 바뀐다
+- [x] Firebase 프로젝트 연결 — `.env.local` 작성, 보안 규칙 배포, 관리자 커스텀 클레임 부여 완료
+      (규칙은 UID 하드코딩 대신 `request.auth.token.admin` 을 본다)
 - [ ] 첫 글 3편 주제
 - [ ] OG 이미지 — 실제 글로 렌더 확인. 구조는 완료(제목·카테고리 배지·태그·날짜)이나 Firestore 데이터로 검증한 적은 없다
 - [ ] velog canonical 태그 정리 방침 확정 (자체 블로그를 메인, velog는 유입용)

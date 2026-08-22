@@ -12,6 +12,25 @@ export function slugify(input: string): string {
     .replace(/^-|-$/g, '');
 }
 
+/**
+ * 라우트 params 로 받은 slug 를 저장값과 맞춘다.
+ *
+ * slug 에 한글을 허용하므로 URL 에서는 퍼센트 인코딩된 채로 들어온다
+ * (`/posts/첫-번째-글` → `%EC%B2%AB-...`). 그대로 Firestore 와 대조하면
+ * 언제나 어긋나 글이 통째로 404 가 된다.
+ *
+ * 잘못 만들어진 이스케이프(`%`, `%zz`)는 decodeURIComponent 가 던지므로
+ * 원문을 그대로 돌려준다 — 어차피 매칭에 실패해 404 로 떨어질 값이고,
+ * 여기서 예외가 새어나가면 500 이 된다.
+ */
+export function decodeSlugParam(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
 /** 마크다운에서 발췌문 자동 생성 — 관리자가 비워두면 이 값을 쓴다 */
 export function autoExcerpt(markdown: string, max = 160): string {
   const plain = markdown

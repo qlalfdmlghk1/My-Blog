@@ -515,3 +515,45 @@
 
 - 리뷰 수렴 중단 — 진행 중인 Vercel Blob 마이그레이션과 작업 트리가 겹쳐 2라운드 미실행
 - 남긴 항목(보안 Medium 3건·정책 판단 2건 등)은 PR 코멘트 참조
+
+---
+
+### Commit — 2026-08-22 14:10
+
+- Message: `Chore:#4 이미지 업로드를 Firebase Storage 에서 Vercel Blob 으로 이전`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약**
+
+- Firebase Storage 제거 — `storage.rules` 삭제, `firebase.json` 의 `storage` 항목,
+  `storageBucket` 설정, `firebase/storage` import, `storage()` 헬퍼, `storage:deploy` 스크립트
+- `@vercel/blob` 도입. `uploadImage()` 가 `upload()` 로 **브라우저 → 스토어 직행** 업로드를 한다
+- `/api/blob-upload` 신설 — 파일이 아니라 **허가 토큰만** 내주는 라우트.
+  Firebase ID 토큰을 `clientPayload` 로 받아 `verifyIdToken(_, true)` + `admin` 클레임 검증
+- `rules:deploy` 에서 색인을 떼어 `indexes:deploy` 로 분리 — 색인 실패가 보안 규칙 릴리스를
+  막지 않게. `uploading rules` 만 찍히고 `released rules` 가 없으면 아직 적용 전이다
+- `dev:ipv4` 스크립트 + README 진단 문단 (`listen EFAULT: bad address ... :::3000`)
+- README: 스택 표기, Storage 설치 단계 삭제와 번호 재조정(5~8), Vercel Blob 설정 절차,
+  스크립트 표 보강, `coverImage` 설명
+
+**결정 로그**
+
+- 옮긴 이유는 **요금제**다 — Firebase Storage 는 2024년부터 Blaze(카드 등록)를 요구하고,
+  Vercel Blob 은 Hobby 에서 카드 없이 무료 한도를 쓴다
+- 파일을 서버로 받지 않는다. 서버리스 본문 상한(4.5MB)을 피하고, 함수(`iad1`)와
+  스토어(`icn1`)의 리전 차이로 파일이 태평양을 두 번 건너는 것을 막는다
+- 크기·형식 제한은 **서버(라우트)가 정한다.** 클라이언트에서 거르면 `upload()` 직접 호출로 우회된다
+- `vercel env pull` 은 쓰지 않기로 했다 — `.env.local` 을 덮어써서 로컬에만 있는
+  `FIREBASE_ADMIN_*`·`ADMIN_UID` 가 날아간다. 대시보드에서 토큰만 복사해 붙인다
+- `dev` 기본값은 IPv4 로 고정하지 않았다 — 머신마다 다른 증상이고, 고정하면 같은
+  네트워크의 다른 기기에서 접속할 수 없다
+
+**남은 것**
+
+- 글을 지워도 Blob 파일은 남는다 (고아 파일 정리 없음)
+- 배포 전 Vercel 대시보드에서 Blob 스토어 생성 · Public · `icn1` · Connect to Project 필요
+
+**다음 작업**
+
+- 소분류 · 페이지네이션 커밋

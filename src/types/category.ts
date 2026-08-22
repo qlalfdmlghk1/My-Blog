@@ -28,3 +28,31 @@ export interface CategoryDraft {
   palette: PaletteId;
   order: number;
 }
+
+/**
+ * categories/{categorySlug}/subcategories/{subSlug} — 소분류
+ *
+ * 하위 컬렉션에 두는 이유가 셋이다.
+ *  - slug 유일성이 카테고리 안에서만 보장되면 된다 (`프론트엔드/react` 와
+ *    `백엔드/react` 가 공존할 수 있다). 최상위 컬렉션이면 전역 유일해야 한다.
+ *  - 보안 규칙에서 `exists(.../categories/{cat}/subcategories/{sub})` 한 번으로
+ *    "존재하는가"와 "그 카테고리 소속인가"를 동시에 검사한다.
+ *  - 부모를 필드로 중복 저장하지 않아도 된다 — 경로가 곧 소속이다.
+ *
+ * 색을 갖지 않는다. 색은 카테고리(대분류)에만 쓴다는 원칙 그대로다.
+ */
+export interface Subcategory {
+  /** 문서 ID = URL 조각. `/categories/{category}/{slug}` */
+  slug: string;
+  /** 부모 카테고리 slug — 문서에 저장하지 않고 경로에서 채운다 */
+  category: string;
+  name: string;
+  /** 같은 카테고리 안에서의 정렬 순서 — 작을수록 위 */
+  order: number;
+}
+
+/** 관리 화면의 소분류 생성 · 수정 폼 (slug 과 부모 카테고리는 생성 시 확정) */
+export interface SubcategoryDraft {
+  name: string;
+  order: number;
+}

@@ -37,6 +37,7 @@ function normalize(id: string, data: Record<string, unknown>): Post {
     content: String(data.content ?? ''),
     excerpt: String(data.excerpt ?? ''),
     category: String(data.category ?? ''),
+    subcategory: String(data.subcategory ?? ''),
     tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     coverImage: data.coverImage ? String(data.coverImage) : null,
     status: data.status === 'published' ? 'published' : 'draft',

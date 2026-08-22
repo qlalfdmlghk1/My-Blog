@@ -16,25 +16,43 @@ import {
 } from '@/components/admin/ui';
 import {
   createCategory,
+  createSubcategory,
   deleteCategory,
+  deleteSubcategory,
   isCategorySlugTaken,
+  isSubcategorySlugTaken,
   listCategories,
+  listSubcategories,
   updateCategory,
+  updateSubcategory,
 } from '@/lib/categories.client';
 import { PALETTE, type PaletteId } from '@/lib/palette';
 import { listAllPosts, revalidateTaxonomy } from '@/lib/posts.client';
 import { slugify } from '@/lib/slug';
-import type { Category, CategoryDraft } from '@/types/category';
+import type {
+  Category,
+  CategoryDraft,
+  Subcategory,
+  SubcategoryDraft,
+} from '@/types/category';
 
 /** 편집 중인 대상 — 새로 만드는 중이면 null slug */
 type Editing = { slug: string | null; draft: CategoryDraft };
+
+/** 소분류 편집 — category 는 항상 고정, slug 이 null 이면 새로 만드는 중 */
+type EditingSub = { category: string; slug: string | null; draft: SubcategoryDraft };
 
 const EMPTY: CategoryDraft = { name: '', hint: '', palette: 'slate', order: 0 };
 
 export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[] | null>(null);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
   /** slug → 글 수 (초안 포함). 삭제 가능 여부의 근거다 */
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
+  /** "카테고리/소분류" → 글 수. 소분류 slug 은 카테고리 안에서만 유일하다 */
+  const [subCounts, setSubCounts] = useState<Map<string, number>>(new Map());
+  const [editingSub, setEditingSub] = useState<EditingSub | null>(null);
+  const [subSlugInput, setSubSlugInput] = useState('');
   const [editing, setEditing] = useState<Editing | null>(null);
   const [slugInput, setSlugInput] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
@@ -43,11 +61,24 @@ export default function AdminCategoriesPage() {
   const load = useCallback(async () => {
     // 글 수는 초안까지 세야 한다 — 초안이 참조 중인 카테고리를 지우면
     // 그 글은 발행하는 순간 존재하지 않는 카테고리를 가리키게 된다.
-    const [found, posts] = await Promise.all([listCategories(), listAllPosts()]);
+    const [found, subs, posts] = await Promise.all([
+      listCategories(),
+      listSubcategories(),
+      listAllPosts(),
+    ]);
     const tally = new Map<string, number>();
-    for (const p of posts) tally.set(p.category, (tally.get(p.category) ?? 0) + 1);
+    const subTally = new Map<string, number>();
+    for (const p of posts) {
+      tally.set(p.category, (tally.get(p.category) ?? 0) + 1);
+      if (p.subcategory) {
+        const key = `${p.category}/${p.subcategory}`;
+        subTally.set(key, (subTally.get(key) ?? 0) + 1);
+      }
+    }
     setCategories(found);
+    setSubcategories(subs);
     setCounts(tally);
+    setSubCounts(subTally);
   }, []);
 
   useEffect(() => {
@@ -162,6 +193,86 @@ export default function AdminCategoriesPage() {
       await revalidateTaxonomy();
       await load();
       if (editing?.slug === category.slug) setEditing(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const subsOf = (category: string) => subcategories.filter((s) => s.category === category);
+
+  function startCreateSub(category: string) {
+    setError(null);
+    setSubSlugInput('');
+    setEditingSub({
+      category,
+      slug: null,
+      draft: { name: '', order: subsOf(category).length * 10 },
+    });
+  }
+
+  function startEditSub(sub: Subcategory) {
+    setError(null);
+    setSubSlugInput(sub.slug);
+    setEditingSub({
+      category: sub.category,
+      slug: sub.slug,
+      draft: { name: sub.name, order: sub.order },
+    });
+  }
+
+  async function saveSub() {
+    if (!editingSub) return;
+    const name = editingSub.draft.name.trim();
+    if (!name) {
+      setError('소분류 이름을 입력하세요.');
+      return;
+    }
+    const slug = editingSub.slug ?? slugify(subSlugInput || name);
+    if (!slug) {
+      setError('소분류 slug 을 만들 수 없습니다.');
+      return;
+    }
+
+    setBusy('저장 중…');
+    setError(null);
+    try {
+      const payload: SubcategoryDraft = { ...editingSub.draft, name };
+      if (editingSub.slug) {
+        await updateSubcategory(editingSub.category, editingSub.slug, payload);
+      } else {
+        if (await isSubcategorySlugTaken(editingSub.category, slug)) {
+          setError(`이 카테고리에 slug "${slug}" 가 이미 있습니다.`);
+          return;
+        }
+        await createSubcategory(editingSub.category, slug, payload);
+      }
+      await revalidateTaxonomy();
+      await load();
+      setEditingSub(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeSub(sub: Subcategory) {
+    // 글이 남은 소분류를 지우면 그 글들은 어느 소분류에도 안 잡히고,
+    // 다시 저장할 때 규칙(subcategoryExists)에 걸려 수정조차 막힌다.
+    if ((subCounts.get(`${sub.category}/${sub.slug}`) ?? 0) > 0) return;
+    if (!window.confirm(`소분류 "${sub.name}" 을(를) 삭제합니다. 되돌릴 수 없습니다.`)) return;
+
+    setBusy('삭제 중…');
+    setError(null);
+    try {
+      await deleteSubcategory(sub.category, sub.slug);
+      await revalidateTaxonomy();
+      await load();
+      if (editingSub?.slug === sub.slug && editingSub.category === sub.category) {
+        setEditingSub(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
     } finally {
@@ -428,6 +539,133 @@ export default function AdminCategoriesPage() {
                   </div>
                 </div>
                 {c.hint && <p className="mt-2 text-xs text-ink-dim">{c.hint}</p>}
+
+                {/* 소분류는 카테고리에 종속이라 카테고리 카드 안에서 관리한다 —
+                    별도 화면으로 빼면 "이게 어느 카테고리 소분류였지"를 매번 확인해야 한다 */}
+                <div className="mt-3 border-t border-line pt-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-ink-dim">
+                      소분류
+                    </p>
+                    <button
+                      type="button"
+                      className="text-[11px] font-medium text-ink-dim hover:text-ink"
+                      onClick={() => startCreateSub(c.slug)}
+                    >
+                      + 추가
+                    </button>
+                  </div>
+
+                  {subsOf(c.slug).length === 0 ? (
+                    <p className={hintClass}>
+                      소분류가 없으면 이 카테고리에 글을 쓸 수 없습니다 — 하나 이상 만드세요.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-1">
+                      {subsOf(c.slug).map((s) => {
+                        const used = subCounts.get(`${s.category}/${s.slug}`) ?? 0;
+                        return (
+                          <li
+                            key={s.slug}
+                            className="flex flex-wrap items-center gap-2.5 rounded-lg border border-line px-3 py-2"
+                          >
+                            <span className="text-sm">{s.name}</span>
+                            <span className="font-mono text-[11px] text-ink-dim">/{s.slug}</span>
+                            <span className="text-[11px] text-ink-dim">글 {used}개</span>
+                            <div className="ml-auto flex items-center gap-3 text-[11px] font-medium">
+                              <button
+                                type="button"
+                                className="hover:underline"
+                                onClick={() => startEditSub(s)}
+                              >
+                                수정
+                              </button>
+                              <button
+                                type="button"
+                                className="text-ink-dim enabled:hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                                disabled={used > 0 || Boolean(busy)}
+                                title={used > 0 ? `글 ${used}편을 먼저 옮기세요` : undefined}
+                                onClick={() => void removeSub(s)}
+                              >
+                                삭제
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+
+                  {editingSub?.category === c.slug && (
+                    <div className="mt-2 rounded-lg border border-ink-dim p-3">
+                      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_6rem]">
+                        <Field htmlFor={`s-name-${c.slug}`} label="이름">
+                          <input
+                            id={`s-name-${c.slug}`}
+                            className={fieldClass}
+                            value={editingSub.draft.name}
+                            placeholder="Next.js"
+                            onChange={(e) =>
+                              setEditingSub({
+                                ...editingSub,
+                                draft: { ...editingSub.draft, name: e.target.value },
+                              })
+                            }
+                          />
+                        </Field>
+                        <Field htmlFor={`s-slug-${c.slug}`} label="slug">
+                          <input
+                            id={`s-slug-${c.slug}`}
+                            className={`${fieldClass} font-mono disabled:opacity-60`}
+                            value={editingSub.slug ?? subSlugInput}
+                            disabled={Boolean(editingSub.slug)}
+                            placeholder={slugify(editingSub.draft.name) || 'nextjs'}
+                            onChange={(e) => setSubSlugInput(e.target.value)}
+                          />
+                        </Field>
+                        <Field htmlFor={`s-order-${c.slug}`} label="순서">
+                          <input
+                            id={`s-order-${c.slug}`}
+                            type="number"
+                            className={`${fieldClass} tabular-nums`}
+                            value={editingSub.draft.order}
+                            onChange={(e) =>
+                              setEditingSub({
+                                ...editingSub,
+                                draft: {
+                                  ...editingSub.draft,
+                                  order: Number(e.target.value) || 0,
+                                },
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                      <p className={hintClass}>
+                        주소 — /categories/{c.slug}/
+                        {editingSub.slug ?? (slugify(subSlugInput || editingSub.draft.name) || '…')}
+                      </p>
+                      <div className="mt-3 flex items-center gap-2">
+                        <button
+                          type="button"
+                          className={`${btnPrimary} px-3 py-1.5 text-xs`}
+                          disabled={Boolean(busy)}
+                          onClick={() => void saveSub()}
+                        >
+                          {editingSub.slug ? '저장' : '만들기'}
+                        </button>
+                        <button
+                          type="button"
+                          className={`${btnQuiet} px-3 py-1.5 text-xs`}
+                          disabled={Boolean(busy)}
+                          onClick={() => setEditingSub(null)}
+                        >
+                          취소
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </li>
             );
           })}

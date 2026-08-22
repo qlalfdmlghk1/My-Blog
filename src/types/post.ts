@@ -16,6 +16,8 @@ export interface Post {
   excerpt: string;
   /** 카테고리 문서의 slug. 목록에 없는 값일 수 있다 — 화면이 무채색으로 떨어뜨린다 */
   category: string;
+  /** 소분류 slug. 위 카테고리의 하위 컬렉션에 있는 문서를 가리킨다 */
+  subcategory: string;
   /** 색 없는 자유 태그 */
   tags: string[];
   coverImage: string | null;
@@ -36,6 +38,7 @@ export interface PostDraft {
   content: string;
   excerpt: string;
   category: string;
+  subcategory: string;
   tags: string[];
   coverImage: string | null;
   status: PostStatus;

@@ -163,7 +163,13 @@ function PostRow({ post, category }: { post: PostSummary; category?: Category })
   const hidden = post.tags.length - shown.length;
 
   return (
-    <li className="rounded-xl border border-line p-4 transition-colors hover:bg-surface">
+    /**
+     * 행 어디를 눌러도 편집기로 들어간다 — 제목 글자만 링크였을 때 과녁이 너무 좁았다.
+     * <li onClick> 대신 제목 <Link> 의 ::after 를 행 전체로 늘린다(stretched link).
+     * 링크는 그대로 하나라 새 탭 열기·키보드 포커스·스크린리더 링크 목록이 살아 있다.
+     * 눌리는 범위는 원래 있던 행 배경(hover:bg-surface)이 그대로 보여준다.
+     */
+    <li className="relative rounded-xl border border-line p-4 transition-colors hover:bg-surface focus-within:bg-surface">
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill status={post.status} />
         <CategoryBadge slug={post.category} category={category} size="sm" />
@@ -173,7 +179,10 @@ function PostRow({ post, category }: { post: PostSummary; category?: Category })
       </div>
 
       <h3 className="mt-2 text-[15px] font-bold leading-snug tracking-tight sm:text-base">
-        <Link href={`/admin/edit/${post.id}`} className="hover:underline">
+        <Link
+          href={`/admin/edit/${post.id}`}
+          className="after:absolute after:inset-0 after:content-['']"
+        >
           {post.title || '(제목 없음)'}
         </Link>
       </h3>
@@ -185,7 +194,8 @@ function PostRow({ post, category }: { post: PostSummary; category?: Category })
         ))}
         {hidden > 0 && <span className="text-[11px] text-ink-dim">+{hidden}</span>}
 
-        <div className="ml-auto flex items-center gap-3 text-xs font-medium">
+        {/* 늘어난 제목 링크 위로 올린다 — 특히 "보기 ↗" 는 목적지가 다르다 */}
+        <div className="relative z-10 ml-auto flex items-center gap-3 text-xs font-medium">
           {/* 발행된 글만 공개 경로가 존재한다 — 임시글 링크는 404 로 간다 */}
           {post.status === 'published' && (
             <a

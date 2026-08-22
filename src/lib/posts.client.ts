@@ -145,15 +145,33 @@ function safeFileName(name: string): string {
 /**
  * 업로드 실패를 사람이 읽을 문구로 바꾼다.
  *
- * /api/blob-upload 가 상황별 한국어 메시지를 JSON 으로 돌려주지만 **화면에 닿지 않는다** —
- * @vercel/blob 클라이언트가 non-2xx 응답의 본문을 읽지 않고 고정 문구
- * "Failed to  retrieve the client token" 만 던지기 때문이다(라이브러리의 이중 공백 그대로).
- * 자격증명 누락인지 권한 부족인지 로그인 만료인지가 구분되지 않으므로 여기서 되짚어 준다.
+ * @vercel/blob 은 실패를 영문으로만 던지고, 토큰 발급 단계에서는 **응답 본문을 읽지 않는다** —
+ * /api/blob-upload 가 상황별 한국어 메시지를 내려도 화면에는 고정 문구
+ * "Failed to  retrieve the client token" 만 닿는다(라이브러리의 이중 공백 그대로).
+ *
+ * 그 한 문구 뒤에 라우트의 실패 넷(Admin 자격증명 없음 · Blob 토큰 없음 · 인증 토큰 없음 ·
+ * 관리자 아님)이 전부 숨어 있어 **여기서 원인을 갈라낼 수단이 없다.** 그래서 관리자가
+ * 스스로 확인할 수 있는 것만 안내하고, 서버 환경변수 이름은 넣지 않는다 — 화면에서 고칠
+ * 수 없는 값이고, 권한 없는 로그인 사용자에게 서버 구성을 알려주는 답이 된다.
+ *
+ * 크기·형식 초과는 토큰이 아니라 업로드 단계에서 오므로 본문이 살아 있다. 다만 영문이라
+ * 따로 되짚는다 — 실제로 가장 자주 걸리는 둘이다. 숫자는 적지 않는다: 상한의 정본은
+ * 라우트(MAX_BYTES · ALLOWED_TYPES)이고, 여기 옮겨 적으면 두 곳이 갈린다.
  */
 function uploadErrorMessage(error: unknown): string {
   const raw = error instanceof Error ? error.message : '';
+
+  if (/too large|exceeds the maximum/i.test(raw)) {
+    return '이미지가 허용 크기를 넘었습니다. 더 작은 파일로 올려 주세요.';
+  }
+  if (/content type/i.test(raw)) {
+    return '지원하지 않는 이미지 형식입니다. PNG · JPEG · GIF · WebP · AVIF 만 올릴 수 있습니다.';
+  }
+  if (/failed to fetch|fetch failed|not available/i.test(raw)) {
+    return '업로드 서비스에 연결하지 못했습니다. 네트워크 상태를 확인하고 다시 시도하세요.';
+  }
   if (/retrieve the client token/i.test(raw)) {
-    return '업로드 권한을 받지 못했습니다. 로그인 상태와 Blob 스토어 연결(BLOB_READ_WRITE_TOKEN)을 확인하세요.';
+    return '업로드 권한을 받지 못했습니다. 로그인이 만료됐거나 관리자 권한이 없습니다 — 다시 로그인해 보세요.';
   }
   return raw || '이미지를 올리지 못했습니다.';
 }

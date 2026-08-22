@@ -34,8 +34,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const found = subs.find((s) => s.category === category && s.slug === subcategory);
   if (!parent || !found || !page) return {};
 
-  // Pagination 이 만드는 주소와 같은 표기를 써야 한다 — 한글 slug 에서 갈린다
-  const base = `/categories/${encodeURIComponent(category)}/${encodeURIComponent(subcategory)}`;
+  const base = `/categories/${category}/${subcategory}`;
   return {
     title:
       page > 1

@@ -33,8 +33,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const page = parsePageParam(raw);
   const category = await getCategoryBySlug(decodeSlugParam(slug));
   if (!category || !page) return {};
-  // Pagination 이 만드는 주소와 같은 표기를 써야 한다 — 한글 slug 에서 갈린다
-  const base = `/categories/${encodeURIComponent(category.slug)}`;
+  const base = `/categories/${category.slug}`;
   return {
     title: page > 1 ? `${category.name} — ${page}페이지` : category.name,
     alternates: { canonical: pageHref(base, page) },

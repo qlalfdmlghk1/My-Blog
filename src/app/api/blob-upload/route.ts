@@ -66,12 +66,22 @@ export async function POST(request: Request): Promise<NextResponse> {
           maximumSizeInBytes: MAX_BYTES,
           // 같은 파일명을 두 번 올려도 앞의 것을 덮어쓰지 않는다
           addRandomSuffix: true,
+          // 위에서 검증한 ID 토큰이 발급 토큰에 딸려 나가지 않게 비운다.
+          // 라이브러리는 tokenPayload 를 안 주면 clientPayload 를 승계한다
+          // (`payload.tokenPayload ?? clientPayload`). null 은 ?? 에 걸려 되살아나므로
+          // 빈 문자열이어야 한다. onUploadCompleted 가 없는 지금은 쓰이지 않지만,
+          // 나중에 콜백을 되살리는 사람이 이 함정을 다시 밟지 않도록 남겨 둔다.
+          tokenPayload: '',
         };
       },
-      onUploadCompleted: async () => {
-        // Blob 이 업로드 완료를 알려주는 훅. 업로드 결과를 따로 기록하지 않으므로 비워 둔다.
-        // (로컬 개발에서는 Vercel 이 localhost 에 도달할 수 없어 호출되지 않는다)
-      },
+      // onUploadCompleted 를 두지 않는다.
+      //
+      // 업로드 결과를 따로 기록할 일이 없어 본문이 비어 있었는데, 이 훅이 있으면
+      // 라이브러리가 callbackUrl 을 만들고 그 순간 tokenPayload 가 발급 토큰에 실린다.
+      // 그러면 admin 클레임이 든 Firebase ID 토큰이 Blob 을 거쳐 업로드 완료 웹훅
+      // 본문으로 평문으로 되돌아온다 — 우리가 필요로 하지도 않는 경로에 관리자
+      // 자격증명을 흘리는 셈이다. 훅을 지우면 callbackUrl 이 undefined 로 남아
+      // 토큰 페이로드도, 공개 콜백 경로도 함께 사라진다.
     });
 
     return NextResponse.json(result);

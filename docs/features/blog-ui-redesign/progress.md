@@ -738,3 +738,34 @@
 **다음 작업**
 
 - 남긴 항목 중 🔴 두 건(`clientPayload` 토큰 유출 · 소분류 `degraded`) 우선 판단
+
+---
+
+### Commit — 2026-08-23 11:05
+
+- Message: `Fix:#4 업로드 토큰에 Firebase ID 토큰이 실려 나가는 경로 차단`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약** (상용 반영 전 선행 수정 — 수렴 때 남긴 보안 Medium 1건)
+
+- `/api/blob-upload` 에서 비어 있던 `onUploadCompleted` 를 제거. 그 훅이 있으면 라이브러리가
+  `callbackUrl` 을 만들고, 그 순간 `tokenPayload`(= 승계된 `clientPayload` = **admin 클레임이
+  든 Firebase ID 토큰**)가 발급 토큰에 실려 Blob 을 거쳐 업로드 완료 웹훅 본문으로 돌아온다
+- `onBeforeGenerateToken` 반환값에 `tokenPayload: ''` 명시 — 콜백을 되살리는 사람이 같은
+  함정을 밟지 않게 하는 방어선. `null` 은 `??` 에 걸려 되살아나므로 오답
+
+**결정 로그**
+
+- 훅을 **지우는 쪽**을 골랐다. 업로드 결과를 기록할 일이 없어 본문이 no-op 이었고,
+  지우면 토큰 페이로드와 공개 콜백 경로가 **함께** 사라진다
+- **로컬에서는 재현되지 않는다** — `getCallbackUrl` 이 `VERCEL=1` 에서만 해석되므로
+  배포본에서만 생기는 노출이었다. 상용 반영 전에 닫는 게 맞다고 판단
+- `clientPayload` 대신 `headers: { Authorization }` 로 옮기는 변경은 **하지 않았다** —
+  인증 경로 수정이라 별도 판단이 필요하다. 유출 경로만 닫았다
+
+**남긴 항목** (변동 없음 — 소분류 `degraded` 전파 등은 그대로)
+
+**다음 작업**
+
+- `dev` 머지 → `dev → main` 상용 반영 PR

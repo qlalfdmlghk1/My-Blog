@@ -126,3 +126,51 @@ revalidate 주기(1시간) 동안 그대로 남는다. `degraded` 면 404 대신
 `<Link>` 의 `::after` 를 카드 전체로 늘렸다. 링크는 여전히 하나뿐이라 새 탭 열기·키보드
 포커스·스크린리더 링크 목록이 그대로 살아 있다. 목적지가 다른 요소(태그 칩, "보기 ↗")는
 `relative z-10` 으로 그 위에 올린다.
+
+---
+
+## [2026-08-23] 업로드 토큰에서 Firebase ID 토큰 떼어내기 (#4)
+
+**증상이 아니라 구조의 문제였다**
+
+`/api/blob-upload` 는 관리자 검증용으로 Firebase ID 토큰을 `clientPayload` 로 받는다.
+그런데 `@vercel/blob` 은 `onBeforeGenerateToken` 이 `tokenPayload` 를 돌려주지 않으면
+**`clientPayload` 를 그대로 승계한다**(`dist/client.js:258`).
+
+```js
+const tokenPayload = payload.tokenPayload ?? clientPayload;
+...
+onUploadCompleted: callbackUrl ? { callbackUrl, tokenPayload } : void 0,
+```
+
+그 결과 admin 클레임이 든 베어러 자격증명이
+
+1. 서명된 client token 안에 실려 Vercel Blob API 로 전송되고
+2. 업로드 완료 웹훅 본문(`tokenPayload`)에 **평문으로 되돌아온다**
+
+Blob 요청 로그 · 함수 로그 · 옵저버빌리티 어느 한 곳이 본문을 남기면, 그걸 읽는 사람이
+그대로 `Authorization: Bearer` 로 `/api/revalidate` 를 부르고 Firestore 에 관리자 권한으로
+쓸 수 있다. **우리가 필요로 하지도 않는 제3자 경로에 관리자 자격증명을 넘기고 있었다.**
+
+**로컬에서는 안 보였다**
+
+`callbackUrl` 은 `onUploadCompleted` 가 있을 때만 만들어지고(`client.js:261`), 그 값은
+`getCallbackUrl(request)` 가 프로덕션(`VERCEL=1`)에서만 해석한다. 로컬은 undefined 라
+`onUploadCompleted: void 0` 로 떨어져 증상이 나타나지 않는다 — **배포본에서만 생기는 노출**이었다.
+
+**고친 방법**
+
+비어 있던 `onUploadCompleted` 를 **지웠다.** 업로드 결과를 기록할 일이 없어 본문이 no-op
+이었는데, 그 훅의 존재만으로 위 경로가 열려 있었다. 지우면 `callbackUrl` 이 undefined 로
+남아 토큰 페이로드도, 공개 콜백 경로도 함께 사라진다.
+
+덧붙여 `onBeforeGenerateToken` 반환값에 `tokenPayload: ''` 를 명시했다. 지금은 쓰이지
+않지만 나중에 콜백을 되살리는 사람이 같은 함정을 밟지 않게 하는 방어선이다.
+**`null` 은 오답이다** — `??` 에 걸려 `clientPayload` 로 되살아난다.
+
+**남는 것 — `clientPayload` 자리가 애초에 맞는가**
+
+`@vercel/blob` 의 `upload()` 는 handleUpload 라우트 호출에 붙일 `headers` 를 정식으로
+지원한다(`client.d.ts:168`). `/api/revalidate` 는 이미 `Authorization: Bearer` 로 같은
+검증을 하고 있어 형태도 그쪽이 맞다. 이번에는 유출 경로만 닫고, 자격증명을 헤더로
+옮기는 변경은 인증 경로 수정이라 후속으로 남긴다.

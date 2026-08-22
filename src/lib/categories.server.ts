@@ -1,9 +1,9 @@
 import 'server-only';
 
-import { normalizeCategory, sortCategories } from '@/lib/categories';
+import { normalizeCategory, normalizeSubcategory, sortCategories, sortSubcategories } from '@/lib/categories';
 import { adminDb, hasAdminCredentials } from '@/lib/firebase/admin';
 import { warnUnconfigured } from '@/lib/safe-read';
-import type { Category } from '@/types/category';
+import type { Category, Subcategory } from '@/types/category';
 
 export const COLLECTION = 'categories';
 
@@ -55,4 +55,45 @@ export async function readCategories(): Promise<{ categories: Category[]; degrad
 export async function getCategoryBySlug(slug: string): Promise<Category | null> {
   const categories = await getCategories();
   return categories.find((c) => c.slug === slug) ?? null;
+}
+
+export const SUB_COLLECTION = 'subcategories';
+
+/**
+ * 모든 카테고리의 소분류를 한 번에 읽는다.
+ *
+ * 카테고리마다 하위 컬렉션을 따로 읽으면 카테고리 수만큼 왕복이 생긴다.
+ * collectionGroup 은 경로 깊이와 무관하게 같은 이름의 컬렉션을 한 번에 훑는다.
+ * 부모 카테고리는 문서에 저장돼 있지 않고 **경로에서** 꺼낸다 (ref.parent.parent).
+ *
+ * 실패하면 빈 배열이다 — 소분류가 안 보일 뿐 글 목록은 그대로 뜬다.
+ */
+export async function getSubcategories(): Promise<Subcategory[]> {
+  if (!hasAdminCredentials()) {
+    warnUnconfigured('getSubcategories');
+    return [];
+  }
+  try {
+    const snap = await adminDb().collectionGroup(SUB_COLLECTION).get();
+    const found = snap.docs.flatMap((d) => {
+      const parent = d.ref.parent.parent?.id;
+      // 카테고리 문서 밑이 아닌 곳의 동명 컬렉션은 버린다 (경로가 곧 소속이므로)
+      return parent ? [normalizeSubcategory(parent, d.id, d.data())] : [];
+    });
+    return sortSubcategories(found);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[firestore] getSubcategories() 실패 — 빈 목록으로 대체합니다.
+  ${message}`);
+    return [];
+  }
+}
+
+/** 한 카테고리 안에서 소분류 찾기 — 소분류 목록 페이지가 404 를 내는 근거 */
+export async function getSubcategory(
+  category: string,
+  slug: string,
+): Promise<Subcategory | null> {
+  const subs = await getSubcategories();
+  return subs.find((s) => s.category === category && s.slug === slug) ?? null;
 }

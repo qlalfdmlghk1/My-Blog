@@ -1,13 +1,7 @@
 import type { Metadata } from 'next';
 
-import { ListShell } from '@/components/ListShell';
-import { PostCard } from '@/components/PostCard';
-import {
-  filterPostsByTag,
-  getAllTags,
-  getCategoryTree,
-  getPublishedPosts,
-} from '@/lib/posts';
+import { TagList } from '@/components/lists/TagList';
+import { getAllTags } from '@/lib/posts';
 import { decodeSlugParam } from '@/lib/slug';
 
 export const revalidate = 3600;
@@ -32,32 +26,5 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 export default async function TagPage({ params }: Params) {
   const { tag } = await params;
-  const decoded = decodeSlugParam(tag);
-  // 목록·사이드바 집계가 같은 목록을 보게 한다 — 출처가 갈리면 사이드바에는
-  // "#태그 3", 본문에는 "0개"가 동시에 뜨는 상태가 생긴다. (Firestore 조회 1회)
-  const all = await getPublishedPosts();
-  const categories = await getCategoryTree(all);
-  const byslug = new Map(categories.map((c) => [c.slug, c]));
-  const posts = filterPostsByTag(all, decoded);
-
-  return (
-    <ListShell categories={categories} total={all.length} activeTag={decoded}>
-      <header className="border-b border-line pb-6">
-        <h1 className="text-2xl font-bold tracking-tight">#{decoded}</h1>
-        <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>
-      </header>
-
-      {posts.length === 0 ? (
-        <p className="py-20 text-center text-sm text-ink-dim">
-          이 태그에 해당하는 글이 없습니다.
-        </p>
-      ) : (
-        <div className="mt-8">
-          {posts.map((p) => (
-            <PostCard key={p.id} post={p} category={byslug.get(p.category)} />
-          ))}
-        </div>
-      )}
-    </ListShell>
-  );
+  return <TagList tag={decodeSlugParam(tag)} page={1} />;
 }

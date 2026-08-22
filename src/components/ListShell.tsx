@@ -1,5 +1,5 @@
 import { SiteSidebar } from '@/components/SiteSidebar';
-import type { CategoryNode } from '@/lib/posts';
+import type { CategoryNode, TagCount } from '@/lib/posts';
 
 /**
  * 목록 화면(홈 · 카테고리 · 태그)의 공통 골격 — 좌측 분류 내비 + 본문 2단.
@@ -13,15 +13,20 @@ import type { CategoryNode } from '@/lib/posts';
  */
 export function ListShell({
   categories,
+  tags,
   total,
   activeCategory,
+  activeSubcategory,
   activeTag,
   children,
 }: {
   categories: CategoryNode[];
+  /** 태그는 계층 밖의 가로축이라 트리와 분리해 받는다 */
+  tags: TagCount[];
   /** 발행된 글 전체 수 — 사이드바의 "전체" 줄에 쓰인다 */
   total: number;
   activeCategory?: string;
+  activeSubcategory?: string;
   activeTag?: string;
   children: React.ReactNode;
 }) {
@@ -34,8 +39,10 @@ export function ListShell({
       </main>
       <SiteSidebar
         categories={categories}
+        tags={tags}
         total={total}
         activeCategory={activeCategory}
+        activeSubcategory={activeSubcategory}
         activeTag={activeTag}
       />
     </div>

@@ -17,7 +17,7 @@
  */
 
 import { isPaletteId } from '@/lib/palette';
-import type { Category } from '@/types/category';
+import type { Category, Subcategory } from '@/types/category';
 
 /**
  * 일반 태그 — 색 없음(회색).
@@ -27,7 +27,7 @@ import type { Category } from '@/types/category';
  * 카테고리 이름(`프론트엔드` `성능`)을 태그로 다시 붙이면 두 축이 같은 말을
  * 되풀이해 태그가 아무것도 구분하지 못한다. 카테고리는 "무슨 성격의 글인가",
  * 태그는 "무엇이 나오는가"로 축을 갈라야 태그가 소주제 역할을 할 수 있다.
- * (판정은 아래 categoryWordSet, 화면 경고는 PostEditor)
+ * (판정은 아래 taxonomyWordSet, 화면 경고는 PostEditor)
  *
  * ── 색 값 ──
  * globals.css 의 무채색 스케일과 같은 색상각(H≈220)을 쓴다. 예전 값(#F1EFE8/#444441)은
@@ -51,14 +51,25 @@ export function normalizeWord(value: string): string {
 }
 
 /**
- * 카테고리가 이미 쓰고 있는 낱말 집합 — 태그로 쓰면 안 되는 값의 판정 재료.
- * slug(`frontend`)와 한글 이름(`프론트엔드`)을 모두 막는다.
+ * 분류가 이미 쓰고 있는 낱말 집합 — 태그로 쓰면 안 되는 값의 판정 재료.
+ * slug(`front-end`)과 한글 이름(`프론트엔드`)을 모두 막는다.
  *
- * 카테고리가 런타임에 늘어나므로 정적 상수로 둘 수 없다. 화면이 이미 읽어둔
+ * 소분류 이름도 함께 막는다. 소분류가 생긴 뒤로는 `Next.js` 같은 기술 이름이
+ * 소분류 자리에 오므로, 같은 낱말을 태그로 또 붙이면 두 축이 겹친다.
+ *
+ * 분류가 런타임에 늘어나므로 정적 상수로 둘 수 없다. 화면이 이미 읽어둔
  * 목록을 넘겨 만든다.
  */
-export function categoryWordSet(categories: readonly Category[]): Set<string> {
-  return new Set(categories.flatMap((c) => [c.slug, c.name]).map(normalizeWord));
+export function taxonomyWordSet(
+  categories: readonly Category[],
+  subcategories: readonly Subcategory[] = [],
+): Set<string> {
+  return new Set(
+    [
+      ...categories.flatMap((c) => [c.slug, c.name]),
+      ...subcategories.flatMap((s) => [s.slug, s.name]),
+    ].map(normalizeWord),
+  );
 }
 
 /** Firestore 문서 → Category. 손상된 필드는 버리지 않고 안전한 값으로 떨어뜨린다. */
@@ -79,6 +90,28 @@ export function normalizeCategory(id: string, data: Record<string, unknown>): Ca
 /** 사이드바·선택 목록의 표시 순서 — order 우선, 같으면 이름 가나다순 */
 export function sortCategories(categories: Category[]): Category[] {
   return [...categories].sort(
+    (a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ko'),
+  );
+}
+
+/** Firestore 문서 → Subcategory. 부모 slug 은 문서가 아니라 경로에서 온다. */
+export function normalizeSubcategory(
+  category: string,
+  id: string,
+  data: Record<string, unknown>,
+): Subcategory {
+  const order = Number(data.order);
+  return {
+    slug: id,
+    category,
+    name: String(data.name ?? id),
+    order: Number.isFinite(order) ? order : 999,
+  };
+}
+
+/** 소분류 표시 순서 — order 우선, 같으면 이름 가나다순 */
+export function sortSubcategories(subcategories: Subcategory[]): Subcategory[] {
+  return [...subcategories].sort(
     (a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ko'),
   );
 }

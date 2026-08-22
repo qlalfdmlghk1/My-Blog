@@ -2,10 +2,10 @@ import 'server-only';
 
 import type { Timestamp } from 'firebase-admin/firestore';
 
-import { getCategories } from '@/lib/categories.server';
+import { getCategories, getSubcategories } from '@/lib/categories.server';
 import { adminDb, hasAdminCredentials } from '@/lib/firebase/admin';
 import { safeRead, warnUnconfigured } from '@/lib/safe-read';
-import type { Category } from '@/types/category';
+import type { Category, Subcategory } from '@/types/category';
 import type { Post, PostSummary } from '@/types/post';
 
 const COLLECTION = 'posts';
@@ -30,6 +30,7 @@ function normalize(id: string, data: Record<string, unknown>): Post {
     // 카테고리는 런타임에 생기므로 여기서 유효성을 판정하지 않는다. 목록에 없는
     // slug 는 화면이 무채색으로 떨어뜨린다 — 글을 잃는 편이 더 나쁘다.
     category: String(data.category ?? ''),
+    subcategory: String(data.subcategory ?? ''),
     tags: Array.isArray(data.tags) ? data.tags.map(String) : [],
     coverImage: data.coverImage ? String(data.coverImage) : null,
     status: data.status === 'published' ? 'published' : 'draft',
@@ -44,23 +45,42 @@ function strip(post: Post): PostSummary {
   return rest;
 }
 
-export async function getPublishedPosts(): Promise<PostSummary[]> {
+/**
+ * `getPublishedPosts()` 와 같은 읽기지만 **폴백을 썼는지(`degraded`)를 함께 돌려준다.**
+ *
+ * 폴백이 빈 배열이라 조회 실패와 "정말 0개"가 호출부에서 구분되지 않는다. 페이지네이션
+ * 처럼 범위 밖이면 404 를 내는 화면이 그 둘을 섞으면, 일시 장애 한 번에 살아 있는
+ * `/page/3` 이 404 로 굳고 `revalidate` 주기(1시간) 동안 그대로 남는다.
+ * 그런 화면은 이 함수를 쓰고 `degraded` 일 때 404 대신 throw 해서 ISR 이 직전 정적
+ * 페이지를 계속 서빙하게 한다. (분류의 `readCategories` 와 같은 이유·같은 형태)
+ */
+export async function readPublishedPosts(): Promise<{
+  posts: PostSummary[];
+  degraded: boolean;
+}> {
   if (!hasAdminCredentials()) {
     warnUnconfigured('getPublishedPosts');
-    return [];
+    return { posts: [], degraded: true };
   }
-  return safeRead(
-    'getPublishedPosts',
-    async () => {
-      const snap = await adminDb()
-        .collection(COLLECTION)
-        .where('status', '==', 'published')
-        .orderBy('publishedAt', 'desc')
-        .get();
-      return snap.docs.map((d) => strip(normalize(d.id, d.data())));
-    },
-    [],
-  );
+  // safeRead 를 쓰지 않는다 — fallback 인자가 즉시 평가돼 실패 여부를 표시할 수 없다.
+  // 로그 형식은 safeRead 와 맞춘다.
+  try {
+    const snap = await adminDb()
+      .collection(COLLECTION)
+      .where('status', '==', 'published')
+      .orderBy('publishedAt', 'desc')
+      .get();
+    return { posts: snap.docs.map((d) => strip(normalize(d.id, d.data()))), degraded: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[firestore] getPublishedPosts() 실패 — 기본값으로 대체합니다.
+  ${message}`);
+    return { posts: [], degraded: true };
+  }
+}
+
+export async function getPublishedPosts(): Promise<PostSummary[]> {
+  return (await readPublishedPosts()).posts;
 }
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
@@ -123,10 +143,19 @@ export async function getAllTags(known?: PostSummary[]): Promise<TagCount[]> {
   return sortTags(counts);
 }
 
+export interface SubcategoryNode extends Subcategory {
+  count: number;
+}
+
 export interface CategoryNode extends Category {
   count: number;
-  /** 이 카테고리의 글에 붙은 태그 — 사이드바에서 소주제 자리에 놓인다 */
-  tags: TagCount[];
+  /** 이 카테고리의 소분류 — 사이드바 트리의 두 번째 단 */
+  subs: SubcategoryNode[];
+  /**
+   * 소분류가 없는 글 수. 소분류는 필수지만, 소분류를 지운 뒤 남은 글이나
+   * 예전 데이터가 여기 잡힌다 — 0 이 아니면 관리 화면이 정리를 안내한다.
+   */
+  looseCount: number;
 }
 
 /**
@@ -149,28 +178,35 @@ export async function getCategoryTree(
   known?: PostSummary[],
   knownCategories?: Category[],
 ): Promise<CategoryNode[]> {
-  const [posts, categories] = await Promise.all([
+  const [posts, categories, subcategories] = await Promise.all([
     known ? Promise.resolve(known) : getPublishedPosts(),
     knownCategories ?? getCategories(),
+    getSubcategories(),
   ]);
 
-  const counts = new Map<string, number>();
-  const tagsOf = new Map<string, Map<string, number>>();
+  const catCount = new Map<string, number>();
+  const looseCount = new Map<string, number>();
+  // 소분류 집계 키는 "카테고리/소분류" — 서로 다른 카테고리가 같은 소분류 slug 을
+  // 쓸 수 있으므로(프론트엔드/react, 백엔드/react) slug 만으로는 섞인다.
+  const subCount = new Map<string, number>();
 
   for (const p of posts) {
-    counts.set(p.category, (counts.get(p.category) ?? 0) + 1);
-    let bucket = tagsOf.get(p.category);
-    if (!bucket) {
-      bucket = new Map<string, number>();
-      tagsOf.set(p.category, bucket);
+    catCount.set(p.category, (catCount.get(p.category) ?? 0) + 1);
+    if (p.subcategory) {
+      const key = `${p.category}/${p.subcategory}`;
+      subCount.set(key, (subCount.get(key) ?? 0) + 1);
+    } else {
+      looseCount.set(p.category, (looseCount.get(p.category) ?? 0) + 1);
     }
-    for (const t of p.tags) bucket.set(t, (bucket.get(t) ?? 0) + 1);
   }
 
   return categories.map((category) => ({
     ...category,
-    count: counts.get(category.slug) ?? 0,
-    tags: sortTags(tagsOf.get(category.slug) ?? new Map()),
+    count: catCount.get(category.slug) ?? 0,
+    looseCount: looseCount.get(category.slug) ?? 0,
+    subs: subcategories
+      .filter((s) => s.category === category.slug)
+      .map((s) => ({ ...s, count: subCount.get(`${s.category}/${s.slug}`) ?? 0 })),
   }));
 }
 
@@ -190,4 +226,13 @@ export async function getPostsByCategory(
 /** 태그별 글 목록의 메모리 판 — 사이드바 집계와 같은 목록을 보게 해 숫자가 어긋나지 않는다 */
 export function filterPostsByTag(posts: PostSummary[], tag: string): PostSummary[] {
   return posts.filter((p) => p.tags.includes(tag));
+}
+
+/** 소분류별 글 목록 — 카테고리와 같은 이유로 메모리에서 거른다 */
+export function filterPostsBySubcategory(
+  posts: PostSummary[],
+  category: string,
+  subcategory: string,
+): PostSummary[] {
+  return posts.filter((p) => p.category === category && p.subcategory === subcategory);
 }

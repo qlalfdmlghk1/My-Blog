@@ -16,8 +16,8 @@ import {
   hintClass,
   labelClass,
 } from '@/components/admin/ui';
-import { categoryWordSet, normalizeWord } from '@/lib/categories';
-import { listCategories } from '@/lib/categories.client';
+import { normalizeWord, taxonomyWordSet } from '@/lib/categories';
+import { listCategories, listSubcategories } from '@/lib/categories.client';
 import { renderPreview } from '@/lib/markdown-preview';
 import {
   createPost,
@@ -28,7 +28,7 @@ import {
   uploadImage,
 } from '@/lib/posts.client';
 import { autoExcerpt, slugify } from '@/lib/slug';
-import type { Category } from '@/types/category';
+import type { Category, Subcategory } from '@/types/category';
 import type { Post, PostDraft, PostStatus } from '@/types/post';
 
 /**
@@ -46,6 +46,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
   const [content, setContent] = useState(existing?.content ?? '');
   const [excerpt, setExcerpt] = useState(existing?.excerpt ?? '');
   const [category, setCategory] = useState<string>(existing?.category ?? '');
+  const [subcategory, setSubcategory] = useState<string>(existing?.subcategory ?? '');
 
   const [tagInput, setTagInput] = useState(existing?.tags.join(', ') ?? '');
   const [coverImage, setCoverImage] = useState(existing?.coverImage ?? '');
@@ -59,22 +60,30 @@ export function PostEditor({ existing }: { existing?: Post }) {
    * 저장 직전에야 "카테고리를 고르세요"가 뜨는 것보다 낫다.
    */
   const [categories, setCategories] = useState<Category[] | null>(null);
+  const [subcategories, setSubcategories] = useState<Subcategory[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    listCategories()
-      .then((found) => {
+    Promise.all([listCategories(), listSubcategories()])
+      .then(([cats, subs]) => {
         if (cancelled) return;
-        setCategories(found);
-        setCategory((current) => current || found[0]?.slug || '');
+        setCategories(cats);
+        setSubcategories(subs);
+        setCategory((current) => current || cats[0]?.slug || '');
       })
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : '카테고리를 불러오지 못했습니다.'),
+        setError(err instanceof Error ? err.message : '분류를 불러오지 못했습니다.'),
       );
     return () => {
       cancelled = true;
     };
   }, []);
+
+  /** 지금 고른 카테고리에 속한 소분류만 — 소분류는 카테고리를 넘나들지 않는다 */
+  const subOptions = useMemo(
+    () => subcategories.filter((s) => s.category === category),
+    [subcategories, category],
+  );
 
   const previewHtml = useMemo(() => renderPreview(content), [content]);
   // 발췌문 placeholder 도 본문 전체를 정규식으로 훑으므로 미리보기와 같이 memo 한다
@@ -108,9 +117,9 @@ export function PostEditor({ existing }: { existing?: Post }) {
    */
   const echoedTags = useMemo(() => {
     if (!categories) return [];
-    const words = categoryWordSet(categories);
+    const words = taxonomyWordSet(categories, subcategories);
     return tags.filter((t) => words.has(normalizeWord(t)));
-  }, [tags, categories]);
+  }, [tags, categories, subcategories]);
 
   /**
    * 커버 썸네일용 주소.
@@ -178,11 +187,17 @@ export function PostEditor({ existing }: { existing?: Post }) {
     if (!title.trim()) return '제목을 입력하세요.';
     if (!slug.trim()) return 'slug 를 입력하세요.';
     if (!category) return '카테고리를 고르세요.';
+    if (!subcategory) return '소분류를 고르세요.';
     // 목록에 없는 카테고리를 가리키는 기존 글. 라디오는 아무것도 선택되지 않은 것처럼
     // 보이지만 category 값 자체는 남아 있어, 이 검사가 없으면 그대로 통과한 뒤
     // firestore.rules 의 categoryExists() 에 걸려 permissions 원문 에러만 뜬다.
     if (categories && !categories.some((c) => c.slug === category)) {
       return `이 글은 목록에 없는 카테고리 "${category}" 를 가리킵니다. 아래에서 다시 고르거나 카테고리 화면에서 그 slug 로 만드세요.`;
+    }
+    // 소분류도 같은 이유로 미리 잡는다 — 규칙의 subcategoryExists() 에 걸리면
+    // permissions 원문 에러만 뜨고 무엇이 잘못됐는지 화면에 안 남는다.
+    if (categories && !subOptions.some((s) => s.slug === subcategory)) {
+      return `이 글은 "${category}" 에 없는 소분류 "${subcategory}" 를 가리킵니다. 아래에서 다시 고르세요.`;
     }
     if (status === 'published' && !content.trim()) return '본문이 비어 있습니다.';
     return null;
@@ -213,6 +228,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
         content,
         excerpt: excerpt.trim() || excerptHint,
         category,
+        subcategory,
         tags,
         coverImage: coverImage.trim() || null,
         status,
@@ -393,7 +409,18 @@ export function PostEditor({ existing }: { existing?: Post }) {
                           name="category"
                           value={c.slug}
                           checked={category === c.slug}
-                          onChange={() => setCategory(c.slug)}
+                          onChange={() => {
+                            setCategory(c.slug);
+                            // 소분류는 카테고리에 종속이다 — 카테고리가 바뀌면
+                            // 이전 소분류는 더 이상 유효하지 않으므로 비운다.
+                            setSubcategory(
+                              c.slug === existing?.category ? existing.subcategory : '',
+                            );
+                            // 직전 저장에서 뜬 오류를 함께 지운다 — 안 지우면 카테고리를
+                            // 고쳐도 "목록에 없는 카테고리" 경고가 그대로 남아, 고친 게
+                            // 반영되지 않은 것처럼 보인다.
+                            setError(null);
+                          }}
                           className="peer sr-only"
                         />
                         <span className="flex items-center gap-2 rounded-lg border border-line bg-bg px-2.5 py-2 text-sm transition-colors hover:border-ink-dim peer-checked:border-ink peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--text)]">
@@ -409,6 +436,44 @@ export function PostEditor({ existing }: { existing?: Post }) {
                   </div>
                 )}
                 {activeHint && <p className={hintClass}>{activeHint}</p>}
+              </fieldset>
+
+              <fieldset>
+                <legend className={`${labelClass} mb-1.5`}>소분류 — 정확히 1개</legend>
+                {!categories ? (
+                  <p className="text-xs text-ink-dim">불러오는 중…</p>
+                ) : !category ? (
+                  <p className="text-xs text-ink-dim">카테고리를 먼저 고르세요.</p>
+                ) : subOptions.length === 0 ? (
+                  <p className="text-xs leading-relaxed text-ink-dim">
+                    이 카테고리에 소분류가 없습니다.{' '}
+                    <Link href="/admin/categories" className="font-semibold underline">
+                      카테고리 관리
+                    </Link>
+                    에서 먼저 만드세요.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                    {subOptions.map((s) => (
+                      <label key={s.slug} className="cursor-pointer">
+                        <input
+                          type="radio"
+                          name="subcategory"
+                          value={s.slug}
+                          checked={subcategory === s.slug}
+                          onChange={() => {
+                            setSubcategory(s.slug);
+                            setError(null);
+                          }}
+                          className="peer sr-only"
+                        />
+                        <span className="flex items-center gap-2 rounded-lg border border-line bg-bg px-2.5 py-2 text-sm transition-colors hover:border-ink-dim peer-checked:border-ink peer-checked:font-semibold peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--text)]">
+                          <span className="truncate">{s.name}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </fieldset>
 
               <Field htmlFor="f-tags" label="태그 — 기술 · 도구 이름만">

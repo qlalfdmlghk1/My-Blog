@@ -557,3 +557,58 @@
 **다음 작업**
 
 - 소분류 · 페이지네이션 커밋
+
+---
+
+### Commit — 2026-08-22 14:25
+
+- Message: `Feat:#4 소분류 2단 분류와 목록 페이지네이션 추가`
+- Issue: `#4`
+- Jira: 미사용 (1인 프로젝트)
+
+**변경 요약**
+
+- 소분류 도입 — `categories/{cat}/subcategories/{sub}` 하위 컬렉션.
+  `Subcategory`·`SubcategoryDraft` 타입, `normalizeSubcategory`/`sortSubcategories`,
+  서버·클라이언트 CRUD, 관리 화면(`/admin/categories`)에 소분류 편집
+- 글에 `subcategory` 필수 — `firestore.rules` 의 `validPost` 가 `subcategoryExists()` 로
+  실재를 확인하고, `PostEditor` 가 같은 검사를 미리 한다
+- 사이드바를 2단 트리로 — 카테고리(색) → 소분류(무채색). 태그는 트리에서 빼내
+  아래 별도 구역으로. `looseCount`(분류 없음) 노출
+- `CategoryNode.tags` → `subs`/`looseCount` 로 교체. `categoryWordSet` → `taxonomyWordSet`
+- 페이지네이션 — `lib/pagination`, `Pagination` 컴포넌트,
+  `/page/[page]`·`/categories/[slug]/page/[page]`·`/categories/[slug]/[sub]/page/[page]`·
+  `/tags/[tag]/page/[page]` 라우트
+- 목록 본문을 `components/lists/{Home,Category,Subcategory,Tag}List` 로 공용화 —
+  기준 URL 라우트와 `/page/[page]` 가 같은 본문을 쓴다
+- `readPublishedPosts()` 신설 — 조회 실패와 "정말 0개"를 구분해 404 굳음 방지
+- `/api/revalidate` 가 `/page/N` 까지 무효화. sitemap 에 소분류 경로 추가
+- 곁다리: 글 카드·관리 목록 행에 stretched link — 카드 전체가 과녁
+
+**결정 로그**
+
+- 소분류를 **하위 컬렉션**에 둔다. slug 유일성이 카테고리 안에서만 필요하고
+  (`프론트엔드/react` ↔ `백엔드/react`), 규칙에서 `exists()` 한 번이
+  "존재 + 소속"을 동시에 검사하며, 부모를 필드로 중복 저장하지 않아도 된다
+- `collectionGroup` 질의는 중첩 `match` 로 안 통과한다 →
+  `match /{path=**}/subcategories/{subSlug}` 를 **읽기 전용으로만** 따로 열었다
+- 페이지 이동은 `?page=2` 가 아니라 `/page/2`. Server Component 가 `searchParams` 를
+  읽으면 라우트가 동적 렌더링으로 바뀌어 목록의 ISR 정적 생성이 사라진다
+- `generateStaticParams` 는 2페이지부터만 낸다. `parsePageParam` 은 `01`·`2.0`·`+2` 를
+  거른다 — 같은 페이지가 여러 주소로 열리면 검색엔진에 중복 문서로 잡힌다
+- 소분류 목록은 재생성 때 **전량** 갱신한다. 글의 소분류가 바뀌면 떠난 쪽·도착한 쪽이
+  동시에 낡는데 어느 쪽인지 요청만으로는 알 수 없다
+- 태그는 계층 밖의 가로축으로 확정 — 소분류가 트리의 두 번째 단을 가져갔다
+
+**남은 것 / 확인 필요**
+
+- **`npm run rules:deploy` 를 코드 배포보다 먼저** 해야 한다. 소분류 필수화가 규칙에
+  들어 있어 순서가 뒤바뀌면 배포본이 `Missing or insufficient permissions.` 를 낸다
+- 기존 글에는 `subcategory` 가 없다 → 편집기에서 소분류를 골라 다시 저장해야 한다
+  (사이드바에는 "분류 없음"으로 잡힌다)
+- README 의 글 문서 스키마 표에 `subcategory` 행이 없고, 새 라우트 목록도 반영 전이다
+- 프로덕션 빌드 · Lighthouse 실측 미실행
+
+**다음 작업**
+
+- PR #5 업데이트 → `/review-converge` 2라운드

@@ -146,7 +146,7 @@ export default function AdminGlossaryPage() {
           : aliases.length > ALIAS_MAX
             ? `별칭은 최대 ${ALIAS_MAX}개입니다 (현재 ${aliases.length}개).`
             : editing.draft.postSlug.trim().length >= POST_SLUG_MAX
-              ? `연결할 글 slug 이 너무 깁니다 (${POST_SLUG_MAX}자 미만).`
+              ? `연결할 글 slug 은 ${POST_SLUG_MAX}자 미만이어야 합니다 (현재 ${editing.draft.postSlug.trim().length}자).`
               : null;
     if (tooLong) {
       setError(tooLong);

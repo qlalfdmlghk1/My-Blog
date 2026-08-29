@@ -53,6 +53,9 @@ export default function AdminPage() {
           <Link href="/admin/categories" className={btnSecondary}>
             카테고리
           </Link>
+          <Link href="/admin/glossary" className={btnSecondary}>
+            용어 사전
+          </Link>
           <Link href="/admin/write" className={btnPrimary}>
             새 글 쓰기
           </Link>

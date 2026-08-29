@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
-  let body: { slug?: unknown; tags?: unknown };
+  let body: { slug?: unknown; tags?: unknown; scope?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -58,6 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const slug = typeof body.slug === 'string' ? body.slug : '';
   const tags = strings(body.tags);
+  const scope = typeof body.scope === 'string' ? body.scope : '';
 
   // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다
   const paths = ['/', '/rss.xml', '/sitemap.xml'];
@@ -87,6 +88,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       pushPath(pageHref(base, page));
     }
   };
+
+  // 용어 사전은 저장된 본문이 아니라 렌더 시점에 글에 링크를 붙인다
+  // (`lib/markdown.ts`). 그래서 사전이 바뀌면 그 낱말을 쓴 글의 HTML 이 전부 낡는데,
+  // 어느 글인지는 본문을 다 훑어야 알 수 있다. 전량 무효화가 그 탐색보다 싸다.
+  if (scope === 'glossary') {
+    pushPath('/glossary');
+    for (const post of posts) pushPath(`/posts/${post.slug}`);
+  }
 
   pushList('/', posts.length);
   for (const tag of tags) {

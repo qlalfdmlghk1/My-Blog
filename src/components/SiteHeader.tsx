@@ -48,7 +48,7 @@ export function SiteHeader() {
             글
           </Link>
           <Link
-            href="/glossary"
+            href="/dictionary"
             className="rounded-md px-2.5 py-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
           >
             용어

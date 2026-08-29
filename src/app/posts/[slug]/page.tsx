@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { CSSProperties } from 'react';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { hasToc, PostToc } from '@/components/PostToc';
@@ -110,7 +111,17 @@ export default async function PostPage({ params }: Params) {
         )}
       </header>
 
-      <article className="md mt-9" dangerouslySetInnerHTML={{ __html: html }} />
+      {/* 용어 링크의 점선 밑줄색을 이 글의 카테고리 색으로 맞춘다 (globals.css 의 .md a.term).
+          팔레트 슬롯 변수는 category-css.ts 가 라이트·다크 2벌로 이미 깔아두므로
+          여기서는 "어느 슬롯인지"만 가리키면 되고, 테마 전환은 그 변수가 알아서 따라온다.
+          카테고리를 못 찾으면 변수를 얹지 않는다 — CSS 가 무채색으로 떨어뜨린다. */}
+      <article
+        className="md mt-9"
+        style={
+          category ? ({ '--term-line': `var(--pal-${category.palette}-fg)` } as CSSProperties) : undefined
+        }
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
 
       <nav className="mt-16 border-t border-line pt-6 text-sm">
         <Link href="/" className="font-semibold hover:underline">

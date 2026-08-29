@@ -33,14 +33,15 @@ export function slugify(input: string): string {
  * 그 경우 저장 검사(`slug 를 입력하세요`)가 막고 관리자가 직접 채운다.
  */
 export function toAsciiSlug(input: string): string {
-  return slugify(romanizeKorean(input))
-    // 로마자로 옮겨지지 않은 비-ASCII(한자·가나·이모지)는 여기서 떨군다 —
-    // slugify 는 \p{Letter} 를 통과시키므로 그것만으로는 ASCII 가 보장되지 않는다.
-    .replace(/[^\x20-\x7E]/g, '')
-    .replace(/-{2,}/g, '-')
-    .replace(/^-|-$/g, '');
+  return (
+    slugify(romanizeKorean(input))
+      // 로마자로 옮겨지지 않은 비-ASCII(한자·가나·이모지)는 여기서 떨군다 —
+      // slugify 는 \p{Letter} 를 통과시키므로 그것만으로는 ASCII 가 보장되지 않는다.
+      .replace(/[^\x20-\x7E]/g, '')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-|-$/g, '')
+  );
 }
-
 
 /**
  * **이미 영문인 값**을 주소 조각으로 다듬는다 — 모델이 제안한 slug 이 그 대상이다.
@@ -51,16 +52,18 @@ export function toAsciiSlug(input: string): string {
  * 그때 호출부가 로마자 폴백으로 떨어진다.
  */
 export function sanitizeAsciiSlug(input: string, max = 80): string {
-  return input
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_]+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-{2,}/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, max)
-    // 잘린 끝이 하이픈으로 남을 수 있다
-    .replace(/-$/, '');
+  return (
+    input
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_]+/g, '-')
+      .replace(/[^a-z0-9-]/g, '')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, max)
+      // 잘린 끝이 하이픈으로 남을 수 있다
+      .replace(/-$/, '')
+  );
 }
 
 /**
@@ -86,8 +89,8 @@ export function decodeSlugParam(raw: string): string {
 export function autoExcerpt(markdown: string, max = 160): string {
   const plain = markdown
     .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/!\[[^\]]*\]\([^()\n]*\)/g, ' ')
+    .replace(/\[([^\]]*)\]\([^()\n]*\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/[*_`>#-]/g, ' ')
     .replace(/\s+/g, ' ')

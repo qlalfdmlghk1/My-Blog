@@ -223,7 +223,9 @@ export default function AdminDictionaryPage() {
       await load();
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
-      setError(`저장은 됐지만 목록 갱신에 실패했습니다${message ? ` — ${message}` : ''}. 새로고침하세요.`);
+      setError(
+        `저장은 됐지만 목록 갱신에 실패했습니다${message ? ` — ${message}` : ''}. 새로고침하세요.`,
+      );
     } finally {
       setBusy(null);
     }
@@ -285,7 +287,9 @@ export default function AdminDictionaryPage() {
       return;
     }
     if (name.length >= DICTIONARY_LIMITS.categoryName) {
-      setError(`분류 이름은 ${DICTIONARY_LIMITS.categoryName}자 미만이어야 합니다 (현재 ${name.length}자).`);
+      setError(
+        `분류 이름은 ${DICTIONARY_LIMITS.categoryName}자 미만이어야 합니다 (현재 ${name.length}자).`,
+      );
       return;
     }
 
@@ -294,29 +298,51 @@ export default function AdminDictionaryPage() {
       setError('분류 slug 을 만들 수 없습니다. 직접 입력하세요.');
       return;
     }
+    // 한글 이름은 로마자로 3~4배 늘어난다. 이름이 규칙(60자)을 통과해도 slug 이 100자를
+    // 넘을 수 있고, 그러면 이 분류를 지정한 **용어 저장**이 규칙의 category 상한에 걸려
+    // permissions 원문 에러만 뜬다 — 원인이 분류 쪽에 있는데 용어 화면에서 막힌다.
+    if (slug.length >= DICTIONARY_LIMITS.category) {
+      setError(
+        `분류 slug 은 ${DICTIONARY_LIMITS.category}자 미만이어야 합니다 (현재 ${slug.length}자). 짧게 직접 입력하세요.`,
+      );
+      return;
+    }
 
     setBusy('저장 중…');
     setError(null);
+
+    const payload: DictionaryCategoryDraft = { ...editingCategory.draft, name };
+
+    // 용어 저장(save)과 같은 이유로 쓰기와 재검증을 나눈다 — 한 try 로 묶으면
+    // 저장은 됐는데 재검증이 실패했을 때 폼이 열린 채 남아, 다시 누르면
+    // "이미 사용 중"이 뜬다.
     try {
-      const payload: DictionaryCategoryDraft = {
-        ...editingCategory.draft,
-        name,
-      };
       if (editingCategory.slug) {
         await updateDictionaryCategory(editingCategory.slug, payload);
       } else {
         if (await isDictionaryCategorySlugTaken(slug)) {
           setError(`분류 slug "${slug}" 는 이미 사용 중입니다.`);
+          setBusy(null);
           return;
         }
         await createDictionaryCategory(slug, payload);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      setBusy(null);
+      return;
+    }
+
+    setEditingCategory(null);
+    try {
       // 사전 페이지의 필터 줄이 이 목록을 그린다
       await revalidateDictionary();
       await load();
-      setEditingCategory(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      const message = err instanceof Error ? err.message : '';
+      setError(
+        `저장은 됐지만 목록 갱신에 실패했습니다${message ? ` — ${message}` : ''}. 새로고침하세요.`,
+      );
     } finally {
       setBusy(null);
     }

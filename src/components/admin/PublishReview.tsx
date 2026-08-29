@@ -176,6 +176,7 @@ export function PublishReview({ post }: { post: Post }) {
 
     // 한 건이라도 썼으면 화면과 정적 페이지를 **그 상태에 맞춘다.** 실패했다고 건너뛰면
     // 들어간 용어에 본문 링크가 붙지 않고, 후보 목록에도 남아 다시 누르게 된다.
+    let staleWarning: string | null = null;
     if (written.length > 0) {
       setRegistered((prev) => prev + written.length);
       setCandidates((prev) => prev.filter((c) => !written.includes(c.id)));
@@ -184,17 +185,25 @@ export function PublishReview({ post }: { post: Post }) {
         // 그 낱말을 쓴 글의 HTML 이 전부 낡는다 (posts.client.ts 의 주석 참조).
         await revalidateDictionary();
       } catch {
-        failure ??= '용어는 등록됐지만 정적 페이지 갱신에 실패했습니다. 사전 관리에서 다시 저장하면 갱신됩니다.';
+        staleWarning = '정적 페이지 갱신에 실패했습니다. 사전 관리에서 다시 저장하면 갱신됩니다.';
       }
     }
 
     setBusy(null);
-    if (failure) {
+
+    // 문구가 실제 상태와 어긋나지 않게 세 경우를 갈라 쓴다. "썼는가"만 보고 갈라서는
+    // **전부 성공 + 재검증만 실패**한 경우에 "N개까지 등록한 뒤 멈췄습니다"가 나가,
+    // 남은 후보를 잃은 것처럼 읽힌다 — 등록은 하나도 빠지지 않았는데.
+    const partial = written.length < prepared.length;
+    if (failure && partial) {
       setError(
-        written.length > 0
-          ? `${written.length}개까지 등록한 뒤 멈췄습니다 — ${failure}`
-          : failure,
+        `${written.length}/${prepared.length}개까지 등록한 뒤 멈췄습니다 — ${failure}` +
+          (staleWarning ? ` (${staleWarning})` : ''),
       );
+    } else if (failure) {
+      setError(failure);
+    } else if (staleWarning) {
+      setError(`용어 ${written.length}개는 등록됐습니다. 다만 ${staleWarning}`);
     } else {
       setNotice(`용어 ${written.length}개를 사전에 등록했습니다.`);
     }
@@ -224,13 +233,26 @@ export function PublishReview({ post }: { post: Post }) {
         status: 'published',
       };
       await updatePost(post.id, draft, post.status === 'published');
-      await revalidatePost(post.slug, post.tags);
-      router.push('/admin');
-      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : '발행에 실패했습니다.');
       setBusy(null);
+      return;
     }
+
+    // 발행 자체는 끝났다. 재검증이 실패해도 "발행 실패"로 알리면 사실과 다르고,
+    // 다시 누르면 publishedAt 이 또 찍힌다 (updatePost 의 wasPublished 는 스냅샷 기준).
+    try {
+      await revalidatePost(post.slug, post.tags);
+    } catch {
+      setError(
+        '발행은 됐지만 정적 페이지 갱신에 실패했습니다. 잠시 뒤 다시 시도하거나 새로고침하세요.',
+      );
+      setBusy(null);
+      return;
+    }
+
+    router.push('/admin');
+    router.refresh();
   }
 
   const noCategories = categories !== null && categories.length === 0;
@@ -278,7 +300,10 @@ export function PublishReview({ post }: { post: Post }) {
           </p>
         )}
         {notice && (
-          <p role="status" className="mb-5 rounded-lg border border-line bg-surface px-3.5 py-3 text-sm">
+          <p
+            role="status"
+            className="mb-5 rounded-lg border border-line bg-surface px-3.5 py-3 text-sm"
+          >
             {notice}
           </p>
         )}
@@ -299,7 +324,12 @@ export function PublishReview({ post }: { post: Post }) {
                 >
                   {extracted ? '다시 뽑기' : '용어 뽑기'}
                 </button>
-                <Link href="/admin/dictionary" target="_blank" rel="noreferrer" className={btnQuiet}>
+                <Link
+                  href="/admin/dictionary"
+                  target="_blank"
+                  rel="noreferrer"
+                  className={btnQuiet}
+                >
                   사전 관리 ↗
                 </Link>
                 {registered > 0 && (

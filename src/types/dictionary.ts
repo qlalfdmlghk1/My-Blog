@@ -110,7 +110,14 @@ export interface ExtractedTerm {
   term: string;
   aliases: string[];
   definition: string;
-  /** 영어 원어에서 만든 slug 제안 — 빈 문자열이면 화면이 로마자로 만든다 */
+  /**
+   * 영어 원어에서 만든 slug 제안 — 없으면 빈 문자열이고 화면이 로마자로 떨어뜨린다.
+   *
+   * `toAsciiSlug` 는 한글을 **발음 그대로** 옮긴다(`서버 컴포넌트` → `seobeo-keomponeonteu`).
+   * 주소로는 성립하지만 읽는 사람에게는 아무것도 알려주지 않는다. 그 방식을 택했던 이유는
+   * 번역기를 물리면 키·비용·실패 폴백이 생기고 같은 말이 호출마다 다른 주소가 되기
+   * 때문인데(lib/slug.ts), **추출 경로에서는 이미 모델을 부르고 있어** 그 대가가 새로 들지 않는다.
+   */
   slug: string;
 }
 

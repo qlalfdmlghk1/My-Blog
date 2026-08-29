@@ -14,8 +14,6 @@ import { safeRead, warnUnconfigured } from '@/lib/safe-read';
 import type { DictionaryReference } from '@/lib/dictionary';
 import type { DictionaryCategory, DictionaryTerm } from '@/types/dictionary';
 
-export { CATEGORY_COLLECTION, COLLECTION };
-
 /**
  * 용어 목록 — 사전 페이지와 본문 자동 링크가 함께 쓰는 유일한 읽기 지점.
  *
@@ -89,10 +87,7 @@ export async function getDictionaryReferences(
   return safeRead(
     'getDictionaryReferences',
     async () => {
-      const snap = await adminDb()
-        .collection('posts')
-        .where('status', '==', 'published')
-        .get();
+      const snap = await adminDb().collection('posts').where('status', '==', 'published').get();
       const posts = snap.docs.map((d) => ({
         slug: String(d.get('slug') ?? d.id),
         title: String(d.get('title') ?? ''),

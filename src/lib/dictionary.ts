@@ -40,16 +40,25 @@ export const COLLECTION = 'dictionary';
 export const CATEGORY_COLLECTION = 'dictionaryCategories';
 
 /** Firestore 문서 → DictionaryTerm. 손상된 필드는 버리지 않고 안전한 값으로 떨어뜨린다 */
-export function normalizeDictionaryTerm(
-  id: string,
-  data: Record<string, unknown>,
-): DictionaryTerm {
+export function normalizeDictionaryTerm(id: string, data: Record<string, unknown>): DictionaryTerm {
   const aliases = Array.isArray(data.aliases) ? data.aliases : [];
   return {
     slug: id,
     term: String(data.term ?? id),
-    // 빈 문자열이 섞이면 자동 링크 정규식이 빈 대안을 갖게 되어 모든 위치에 매칭된다
-    aliases: aliases.map((a) => String(a).trim()).filter(Boolean),
+    // 빈 문자열이 섞이면 자동 링크 정규식이 빈 대안을 갖게 되어 모든 위치에 매칭된다.
+    //
+    // 길이도 여기서 자른다. 별칭 하나가 아주 길면(약 4,800자) `buildDictionaryIndex` 가
+    // 만든 정규식이 **실행 시점에** `Invalid regular expression` 을 던지고, 그 예외는
+    // 글 상세 렌더 경로에 가드가 없어 **발행된 글 전체가 렌더 불능**이 된다. 화면과 규칙이
+    // 막는 것은 새로 저장되는 값뿐이라, 이미 들어간 값·Admin SDK 로 넣은 값은 여기가 유일한 관문이다.
+    aliases: aliases
+      .map((a) =>
+        String(a)
+          .trim()
+          .slice(0, DICTIONARY_LIMITS.term - 1),
+      )
+      .filter(Boolean)
+      .slice(0, DICTIONARY_LIMITS.aliases),
     definition: String(data.definition ?? ''),
     postSlug: String(data.postSlug ?? ''),
     // 분류는 선택 사항이다 — 없으면 빈 값으로 두고 화면이 '분류 없음'으로 그린다.
@@ -149,9 +158,7 @@ export function normalizeDictionaryCategory(
  * 필터 줄은 항목이 열 개 안쪽이고, 자주 쓰는 분류를 앞에 두는 편이 낫다.
  */
 export function sortDictionaryCategories(categories: DictionaryCategory[]): DictionaryCategory[] {
-  return [...categories].sort(
-    (a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ko'),
-  );
+  return [...categories].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ko'));
 }
 
 /** 분류 slug → 분류. 목록에 없으면 null (화면이 미분류로 떨어뜨린다) */
@@ -287,23 +294,29 @@ export interface DictionaryReference {
  * 원문을 훑으므로 그 구분이 없어, 그대로 두면 **화면에 점선이 없는데 사전의 관련글에는
  * 뜨는** 어긋남이 생긴다 — 이 함수의 존재 이유가 그 어긋남을 막는 것이다.
  *
- * 링크는 라벨이 아니라 **주소만** 지운다(`](/posts/server-component)`). 주소는 사람이
- * 읽는 글자가 아니고, 라벨은 링크 안에서만 억제될 뿐 글에 보이는 낱말이다.
+ * 펜스는 **줄 머리에서만** 펜스다(`^ {0,3}`). 앵커 없이 쓰면 본문 한가운데의 백틱 세 개
+ * (마크다운 문법을 설명하는 글에 흔하다)가 여는 펜스로 잡혀 그 뒤 글 전체가 사라진다.
+ *
+ * 링크·이미지는 라벨까지 통째로 지운다. 렌더러가 링크 라벨 안에서 용어 링크를 억제하므로
+ * (`markdown.ts` 의 `link()`), 라벨을 남기면 "본문엔 점선이 없는데 관련글에는 뜨는" 쪽으로
+ * 어긋난다. 대상 문자 클래스에서 `(` 를 함께 배제하는 것은 성능 문제다 — `[^)]*` 로 두면
+ * 닫는 괄호가 없는 입력에서 시작 위치마다 나머지를 다시 훑어 길이의 제곱으로 느려진다.
  */
 function stripNonProse(markdown: string): string {
   return (
     markdown
-      // 펜스 코드블록 — 닫힌 것 먼저, 남은 여는 펜스는 문서 끝까지가 코드다.
-      // (`$` 를 대안으로 쓰면 /m 에서 줄 끝에 걸려 여는 줄만 지워진다)
-      .replace(/```[\s\S]*?```/g, ' ')
-      .replace(/```[\s\S]*$/, ' ')
-      .replace(/~~~[\s\S]*?~~~/g, ' ')
-      .replace(/~~~[\s\S]*$/, ' ')
+      // 닫힌 펜스 블록 (``` 과 ~~~). 여는 표시와 같은 것으로 닫아야 한다
+      .replace(/^ {0,3}(```|~~~)[\s\S]*?^ {0,3}\1/gm, ' ')
+      // 남은 여는 펜스 — 닫히지 않았으면 문서 끝까지가 코드다
+      .replace(/^ {0,3}(```|~~~)[\s\S]*/m, ' ')
+      // 4칸 들여쓰기 코드블록
+      .replace(/^(?: {4}|\t).*$/gm, ' ')
       .replace(/`[^`\n]*`/g, ' ')
-      // 제목 줄 — 렌더러가 제목 안에서는 링크를 걸지 않는다
+      // 제목 — ATX(`## 제목`)와 setext(다음 줄이 === 또는 ---) 둘 다
       .replace(/^ {0,3}#{1,6} .*$/gm, ' ')
-      // 링크·이미지의 주소 부분만 (라벨은 남긴다)
-      .replace(/\]\([^)]*\)/g, '] ')
+      .replace(/^.+\n {0,3}(=+|-+)[ \t]*$/gm, ' ')
+      // 링크·이미지는 라벨까지 — 렌더러가 그 안에서 용어 링크를 걸지 않는다
+      .replace(/!?\[[^\]\n]*\]\([^()\n]*\)/g, ' ')
   );
 }
 
@@ -398,9 +411,7 @@ export function searchDictionary(
 
   if (isChoseongQuery(query)) {
     const needle = foldSearchText(query);
-    return terms.filter((t) =>
-      [t.term, ...t.aliases].some((s) => choseongOf(s).includes(needle)),
-    );
+    return terms.filter((t) => [t.term, ...t.aliases].some((s) => choseongOf(s).includes(needle)));
   }
 
   const needle = foldSearchText(query);
@@ -445,11 +456,45 @@ function escapeRegExp(value: string): string {
  * 긴 것을 앞에 둔다 — `으로`가 `로`보다 먼저 시도돼야 `으`가 남지 않는다.
  */
 const PARTICLES = [
-  '이라는', '이라고', '에서는', '에게서', '으로써', '으로서', '이란',
-  '라는', '라고', '에서', '에게', '으로', '부터', '까지', '처럼', '보다',
-  '이나', '이며', '이고', '이다', '입니다',
-  '을', '를', '이', '가', '은', '는', '의', '에', '와', '과', '랑',
-  '로', '도', '만', '나', '며', '고', '다',
+  '이라는',
+  '이라고',
+  '에서는',
+  '에게서',
+  '으로써',
+  '으로서',
+  '이란',
+  '라는',
+  '라고',
+  '에서',
+  '에게',
+  '으로',
+  '부터',
+  '까지',
+  '처럼',
+  '보다',
+  '이나',
+  '이며',
+  '이고',
+  '이다',
+  '입니다',
+  '을',
+  '를',
+  '이',
+  '가',
+  '은',
+  '는',
+  '의',
+  '에',
+  '와',
+  '과',
+  '랑',
+  '로',
+  '도',
+  '만',
+  '나',
+  '며',
+  '고',
+  '다',
 ];
 
 export interface DictionaryIndex {

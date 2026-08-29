@@ -88,7 +88,7 @@ export function decodeSlugParam(raw: string): string {
 /** 마크다운에서 발췌문 자동 생성 — 관리자가 비워두면 이 값을 쓴다 */
 export function autoExcerpt(markdown: string, max = 160): string {
   const plain = markdown
-    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/^ {0,3}```[\s\S]*?^ {0,3}```/gm, ' ')
     .replace(/!\[[^\]]*\]\([^()\n]*\)/g, ' ')
     .replace(/\[([^\]]*)\]\([^()\n]*\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '')

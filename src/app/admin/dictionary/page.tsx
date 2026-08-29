@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import {
   Field,
@@ -13,12 +13,14 @@ import {
   fieldClass,
   hintClass,
   labelClass,
-} from "@/components/admin/ui";
+} from '@/components/admin/ui';
 import {
   DICTIONARY_LIMITS,
   UNCATEGORIZED_LABEL,
+  dictionaryDraftError,
   findDictionaryCategory,
-} from "@/lib/dictionary";
+  parseAliases,
+} from '@/lib/dictionary';
 import {
   createDictionaryCategory,
   createDictionaryTerm,
@@ -30,16 +32,16 @@ import {
   listDictionaryCategories,
   updateDictionaryCategory,
   updateDictionaryTerm,
-} from "@/lib/dictionary.client";
-import { PALETTE, type PaletteId } from "@/lib/palette";
-import { revalidateDictionary } from "@/lib/posts.client";
-import { toAsciiSlug } from "@/lib/slug";
+} from '@/lib/dictionary.client';
+import { PALETTE, type PaletteId } from '@/lib/palette';
+import { revalidateDictionary } from '@/lib/posts.client';
+import { toAsciiSlug } from '@/lib/slug';
 import type {
   DictionaryCategory,
   DictionaryCategoryDraft,
   DictionaryDraft,
   DictionaryTerm,
-} from "@/types/dictionary";
+} from '@/types/dictionary';
 
 /** 편집 중인 대상 — 새로 만드는 중이면 null slug */
 interface Editing {
@@ -54,25 +56,18 @@ interface EditingCategory {
 }
 
 const EMPTY: DictionaryDraft = {
-  term: "",
+  term: '',
   aliases: [],
-  definition: "",
-  postSlug: "",
-  category: "",
+  definition: '',
+  postSlug: '',
+  category: '',
 };
 
 const EMPTY_CATEGORY: DictionaryCategoryDraft = {
-  name: "",
-  palette: "slate",
+  name: '',
+  palette: 'slate',
   order: 0,
 };
-
-/**
- * 길이 상한의 정본은 `lib/dictionary.ts` 의 `DICTIONARY_LIMITS` 다 —
- * firestore.rules 의 validDictionaryTerm 과 같은 값이며, 발행 확인 화면의 AI 추출도
- * 같은 곳을 읽는다. 여기 다시 적어두면 세 곳이 언젠가 갈린다.
- */
-const CATEGORY_NAME_MAX = 60;
 
 /**
  * 용어 사전 관리.
@@ -90,15 +85,14 @@ export default function AdminDictionaryPage() {
   const [terms, setTerms] = useState<DictionaryTerm[] | null>(null);
   const [categories, setCategories] = useState<DictionaryCategory[]>([]);
   const [editing, setEditing] = useState<Editing | null>(null);
-  const [editingCategory, setEditingCategory] =
-    useState<EditingCategory | null>(null);
-  const [slugInput, setSlugInput] = useState("");
-  const [categorySlugInput, setCategorySlugInput] = useState("");
+  const [editingCategory, setEditingCategory] = useState<EditingCategory | null>(null);
+  const [slugInput, setSlugInput] = useState('');
+  const [categorySlugInput, setCategorySlugInput] = useState('');
   /** slug 을 손댔는지 — 손댄 뒤에는 표제어를 고쳐도 따라오지 않는다 (PostEditor 와 같은 규칙) */
   const [slugTouched, setSlugTouched] = useState(false);
   const [categorySlugTouched, setCategorySlugTouched] = useState(false);
   /** 별칭은 쉼표로 끊어 입력받는다 — 배열 상태로 두면 입력 도중 커서가 튄다 */
-  const [aliasInput, setAliasInput] = useState("");
+  const [aliasInput, setAliasInput] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,9 +107,7 @@ export default function AdminDictionaryPage() {
 
   useEffect(() => {
     load().catch((err: unknown) =>
-      setError(
-        err instanceof Error ? err.message : "목록을 불러오지 못했습니다.",
-      ),
+      setError(err instanceof Error ? err.message : '목록을 불러오지 못했습니다.'),
     );
   }, [load]);
 
@@ -130,9 +122,9 @@ export default function AdminDictionaryPage() {
 
   function startCreate() {
     setError(null);
-    setSlugInput("");
+    setSlugInput('');
     setSlugTouched(false);
-    setAliasInput("");
+    setAliasInput('');
     // 분류는 비워 둔다. 첫 항목을 기본값으로 넣으면 사람이 고른 적 없는 분류가
     // 고른 것처럼 저장된다 — 그렇게 들어간 값은 나중에 진짜 분류와 구분되지 않는다.
     setEditing({ slug: null, draft: { ...EMPTY } });
@@ -142,7 +134,7 @@ export default function AdminDictionaryPage() {
     setError(null);
     setSlugInput(term.slug);
     setSlugTouched(true);
-    setAliasInput(term.aliases.join(", "));
+    setAliasInput(term.aliases.join(', '));
     setEditing({
       slug: term.slug,
       draft: {
@@ -156,9 +148,7 @@ export default function AdminDictionaryPage() {
   }
 
   function patch(next: Partial<DictionaryDraft>) {
-    setEditing((prev) =>
-      prev ? { ...prev, draft: { ...prev.draft, ...next } } : prev,
-    );
+    setEditing((prev) => (prev ? { ...prev, draft: { ...prev.draft, ...next } } : prev));
   }
 
   /** 표제어를 치면 slug 이 따라온다 — 한글 표제어는 로마자로 (lib/slug.ts) */
@@ -170,92 +160,79 @@ export default function AdminDictionaryPage() {
   async function save() {
     if (!editing) return;
     const term = editing.draft.term.trim();
-    const definition = editing.draft.definition.trim();
-    if (!term) {
-      setError("표제어를 입력하세요.");
-      return;
-    }
-    if (!definition) {
-      setError("정의를 입력하세요. 사전 항목은 정의가 본체입니다.");
-      return;
-    }
+
     // slug 는 만들 때 한 번만 정한다 — 바꾸면 발행된 글 본문의 용어 링크가 끊긴다
     const slug = editing.slug ?? toAsciiSlug(slugInput || term);
+
+    // 쉼표로 끊고 빈 조각을 버린다 (규칙은 lib/dictionary.ts 의 parseAliases 한 곳)
+    const aliases = parseAliases(aliasInput);
+
+    // firestore.rules 의 validDictionaryTerm 과 같은 기준. 발행 확인 화면도 같은 함수를
+    // 쓰므로, 한 화면에서 저장되는 값이 다른 화면에서 규칙에 막히는 일이 없다.
+    const invalid = dictionaryDraftError({
+      term: editing.draft.term,
+      definition: editing.draft.definition,
+      aliases,
+      postSlug: editing.draft.postSlug,
+    });
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     if (!slug) {
-      setError(
-        "slug 을 만들 수 없습니다. 영문·숫자·한글이 포함된 표제어를 쓰세요.",
-      );
+      setError('slug 을 만들 수 없습니다. 영문·숫자·한글이 포함된 표제어를 쓰세요.');
       return;
     }
 
-    // 쉼표로 끊고 빈 조각을 버린다. 빈 별칭이 남으면 자동 링크 정규식이 빈 대안을
-    // 갖게 되어 본문의 모든 위치에 매칭된다 (lib/dictionary.ts 의 buildDictionaryIndex).
-    const aliases = [
-      ...new Set(
-        aliasInput
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean),
-      ),
-    ];
-
-    // firestore.rules 의 validDictionaryTerm 과 같은 상한을 화면이 먼저 잡는다.
-    // 여기서 안 막으면 규칙에 걸려 `Missing or insufficient permissions.` 원문만 뜨고,
-    // 무엇이 얼마나 초과됐는지 화면에 남지 않는다 (PostEditor 가 분류 검사에서 쓰는 규약).
-    const tooLong =
-      term.length >= DICTIONARY_LIMITS.term
-        ? `표제어는 ${DICTIONARY_LIMITS.term}자 미만이어야 합니다 (현재 ${term.length}자).`
-        : definition.length >= DICTIONARY_LIMITS.definition
-          ? `정의는 ${DICTIONARY_LIMITS.definition}자 미만이어야 합니다 (현재 ${definition.length}자).`
-          : aliases.length > DICTIONARY_LIMITS.aliases
-            ? `별칭은 최대 ${DICTIONARY_LIMITS.aliases}개입니다 (현재 ${aliases.length}개).`
-            : editing.draft.postSlug.trim().length >= DICTIONARY_LIMITS.postSlug
-              ? `연결할 글 slug 은 ${DICTIONARY_LIMITS.postSlug}자 미만이어야 합니다 (현재 ${editing.draft.postSlug.trim().length}자).`
-              : null;
-    if (tooLong) {
-      setError(tooLong);
-      return;
-    }
-
-    setBusy("저장 중…");
+    setBusy('저장 중…');
     setError(null);
-    try {
-      const payload: DictionaryDraft = {
-        term,
-        aliases,
-        definition,
-        postSlug: editing.draft.postSlug.trim(),
-        category: editing.draft.category,
-      };
 
+    const payload: DictionaryDraft = {
+      term,
+      aliases,
+      definition: editing.draft.definition.trim(),
+      postSlug: editing.draft.postSlug.trim(),
+      category: editing.draft.category,
+    };
+
+    // 쓰기와 재검증을 분리한다. 한 try 로 묶으면 **쓰기는 성공했는데 재검증이 실패**했을 때
+    // 폼이 열린 채 에러만 떠서 사람이 "저장 실패"로 읽고 다시 누르는데, 그때는
+    // "이미 사용 중"이 뜬다 — 두 번 다 성공/차단이었는데 문구는 둘 다 실패를 가리킨다.
+    try {
       if (editing.slug) {
         await updateDictionaryTerm(editing.slug, payload);
       } else {
         if (await isDictionarySlugTaken(slug)) {
           setError(`slug "${slug}" 는 이미 사용 중입니다.`);
+          setBusy(null);
           return;
         }
         await createDictionaryTerm(slug, payload);
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      setBusy(null);
+      return;
+    }
 
-      // 표제어·별칭 어느 것이 바뀌어도 글 본문의 자동 링크가 낡는다
+    // 여기부터는 저장이 끝난 뒤다 — 폼을 닫고 목록을 새로 읽는다.
+    // 표제어·별칭 어느 것이 바뀌어도 글 본문의 자동 링크가 낡으므로 재검증을 부른다.
+    setEditing(null);
+    try {
       await revalidateDictionary();
       await load();
-      setEditing(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      const message = err instanceof Error ? err.message : '';
+      setError(`저장은 됐지만 목록 갱신에 실패했습니다${message ? ` — ${message}` : ''}. 새로고침하세요.`);
     } finally {
       setBusy(null);
     }
   }
 
   async function remove(target: DictionaryTerm) {
-    if (
-      !window.confirm(`"${target.term}" 용어를 삭제합니다. 되돌릴 수 없습니다.`)
-    )
-      return;
+    if (!window.confirm(`"${target.term}" 용어를 삭제합니다. 되돌릴 수 없습니다.`)) return;
 
-    setBusy("삭제 중…");
+    setBusy('삭제 중…');
     setError(null);
     try {
       await deleteDictionaryTerm(target.slug);
@@ -263,7 +240,7 @@ export default function AdminDictionaryPage() {
       await load();
       if (editing?.slug === target.slug) setEditing(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+      setError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
     } finally {
       setBusy(null);
     }
@@ -273,7 +250,7 @@ export default function AdminDictionaryPage() {
 
   function startCreateCategory() {
     setError(null);
-    setCategorySlugInput("");
+    setCategorySlugInput('');
     setCategorySlugTouched(false);
     // 순서는 목록 끝에 놓는다 — 새로 만든 분류가 맨 앞에 끼어들 이유가 없다
     setEditingCategory({
@@ -297,32 +274,28 @@ export default function AdminDictionaryPage() {
   }
 
   function patchCategory(next: Partial<DictionaryCategoryDraft>) {
-    setEditingCategory((prev) =>
-      prev ? { ...prev, draft: { ...prev.draft, ...next } } : prev,
-    );
+    setEditingCategory((prev) => (prev ? { ...prev, draft: { ...prev.draft, ...next } } : prev));
   }
 
   async function saveCategory() {
     if (!editingCategory) return;
     const name = editingCategory.draft.name.trim();
     if (!name) {
-      setError("분류 이름을 입력하세요.");
+      setError('분류 이름을 입력하세요.');
       return;
     }
-    if (name.length >= CATEGORY_NAME_MAX) {
-      setError(
-        `분류 이름은 ${CATEGORY_NAME_MAX}자 미만이어야 합니다 (현재 ${name.length}자).`,
-      );
+    if (name.length >= DICTIONARY_LIMITS.categoryName) {
+      setError(`분류 이름은 ${DICTIONARY_LIMITS.categoryName}자 미만이어야 합니다 (현재 ${name.length}자).`);
       return;
     }
 
     const slug = editingCategory.slug ?? toAsciiSlug(categorySlugInput || name);
     if (!slug) {
-      setError("분류 slug 을 만들 수 없습니다. 직접 입력하세요.");
+      setError('분류 slug 을 만들 수 없습니다. 직접 입력하세요.');
       return;
     }
 
-    setBusy("저장 중…");
+    setBusy('저장 중…');
     setError(null);
     try {
       const payload: DictionaryCategoryDraft = {
@@ -343,7 +316,7 @@ export default function AdminDictionaryPage() {
       await load();
       setEditingCategory(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
     } finally {
       setBusy(null);
     }
@@ -354,17 +327,12 @@ export default function AdminDictionaryPage() {
     // 규칙에서 확인할 수단이 없다 (카테고리 삭제와 같은 판단).
     const count = countByCategory.get(target.slug) ?? 0;
     if (count > 0) {
-      setError(
-        `"${target.name}" 에 용어 ${count}개가 남아 있습니다. 먼저 다른 분류로 옮기세요.`,
-      );
+      setError(`"${target.name}" 에 용어 ${count}개가 남아 있습니다. 먼저 다른 분류로 옮기세요.`);
       return;
     }
-    if (
-      !window.confirm(`"${target.name}" 분류를 삭제합니다. 되돌릴 수 없습니다.`)
-    )
-      return;
+    if (!window.confirm(`"${target.name}" 분류를 삭제합니다. 되돌릴 수 없습니다.`)) return;
 
-    setBusy("삭제 중…");
+    setBusy('삭제 중…');
     setError(null);
     try {
       await deleteDictionaryCategory(target.slug);
@@ -372,7 +340,7 @@ export default function AdminDictionaryPage() {
       await load();
       if (editingCategory?.slug === target.slug) setEditingCategory(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
+      setError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
     } finally {
       setBusy(null);
     }
@@ -384,8 +352,7 @@ export default function AdminDictionaryPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight">용어 사전</h1>
           <p className={`mt-1 ${hintClass}`}>
-            여기 등록한 표기가 글 본문에 나오면 사전으로 자동 링크됩니다 (글 한
-            편당 첫 등장 한 번).
+            여기 등록한 표기가 글 본문에 나오면 사전으로 자동 링크됩니다 (글 한 편당 첫 등장 한 번).
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -393,38 +360,25 @@ export default function AdminDictionaryPage() {
               바로 만들 수 있도록 한 화면에 뒀는데, 그러면 용어 목록에 묻혀 안 보인다.
               위에서 내려가는 길을 하나 둔다 (글 카테고리는 자기 페이지가 있어 이 문제가 없다) */}
           <a href="#dictionary-categories" className={btnQuiet}>
-            분류 관리{" "}
-            <span className="tabular-nums opacity-70">{categories.length}</span>
+            분류 관리 <span className="tabular-nums opacity-70">{categories.length}</span>
           </a>
-          <Link
-            href="/dictionary"
-            target="_blank"
-            rel="noreferrer"
-            className={btnQuiet}
-          >
+          <Link href="/dictionary" target="_blank" rel="noreferrer" className={btnQuiet}>
             사전 보기 ↗
           </Link>
-          <button
-            type="button"
-            className={btnPrimary}
-            onClick={startCreate}
-            disabled={!!busy}
-          >
+          <button type="button" className={btnPrimary} onClick={startCreate} disabled={!!busy}>
             새 용어
           </button>
         </div>
       </header>
 
       {error && (
-        <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-fg">
-          {error}
-        </p>
+        <p className="rounded-lg bg-danger-bg px-3.5 py-2.5 text-sm text-danger-fg">{error}</p>
       )}
       {busy && <p className={hintClass}>{busy}</p>}
 
       {editing && (
         <Panel
-          title={editing.slug ? `용어 수정 — ${editing.slug}` : "새 용어"}
+          title={editing.slug ? `용어 수정 — ${editing.slug}` : '새 용어'}
           hint="정의는 평문 한두 문장으로. 길게 설명할 내용이면 글을 쓰고 아래에서 이으세요."
         >
           <div className="space-y-4">
@@ -443,8 +397,8 @@ export default function AdminDictionaryPage() {
               label="slug"
               hint={
                 editing.slug
-                  ? "만들 때 정해진 값입니다 — 바꾸면 이미 발행된 글의 용어 링크가 끊깁니다."
-                  : `앵커 주소 — /dictionary#${slugInput || "…"}`
+                  ? '만들 때 정해진 값입니다 — 바꾸면 이미 발행된 글의 용어 링크가 끊깁니다.'
+                  : `앵커 주소 — /dictionary#${slugInput || '…'}`
               }
             >
               <input
@@ -478,10 +432,7 @@ export default function AdminDictionaryPage() {
                 {/* 목록에 없는 분류를 가리키던 기존 용어. 고르지 않은 것처럼 보이면
                     사용자가 이유를 모른 채 저장이 막히므로 값 자체를 남겨 보여준다 */}
                 {editing.draft.category &&
-                  !findDictionaryCategory(
-                    categories,
-                    editing.draft.category,
-                  ) && (
+                  !findDictionaryCategory(categories, editing.draft.category) && (
                     <option value={editing.draft.category}>
                       {editing.draft.category} (목록에 없는 분류)
                     </option>
@@ -557,29 +508,17 @@ export default function AdminDictionaryPage() {
         {terms === null ? (
           <p className={hintClass}>불러오는 중…</p>
         ) : terms.length === 0 ? (
-          <p className={hintClass}>
-            아직 없습니다. 글에서 반복해 설명하게 되는 낱말부터 넣으세요.
-          </p>
+          <p className={hintClass}>아직 없습니다. 글에서 반복해 설명하게 되는 낱말부터 넣으세요.</p>
         ) : (
           <ul className="divide-y divide-line">
             {terms.map((item) => {
-              const category = findDictionaryCategory(
-                categories,
-                item.category,
-              );
+              const category = findDictionaryCategory(categories, item.category);
               return (
-                <li
-                  key={item.slug}
-                  className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
-                >
+                <li key={item.slug} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="text-sm font-bold tracking-tight">
-                        {item.term}
-                      </span>
-                      <code className="text-[11px] text-ink-dim">
-                        {item.slug}
-                      </code>
+                      <span className="text-sm font-bold tracking-tight">{item.term}</span>
+                      <code className="text-[11px] text-ink-dim">{item.slug}</code>
                       <span
                         className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
                         style={
@@ -594,14 +533,10 @@ export default function AdminDictionaryPage() {
                         {category?.name ?? UNCATEGORIZED_LABEL}
                       </span>
                       {item.aliases.length > 0 && (
-                        <span className="text-[11px] text-ink-dim">
-                          {item.aliases.join(" · ")}
-                        </span>
+                        <span className="text-[11px] text-ink-dim">{item.aliases.join(' · ')}</span>
                       )}
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-ink-dim">
-                      {item.definition}
-                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-dim">{item.definition}</p>
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <button
@@ -638,16 +573,13 @@ export default function AdminDictionaryPage() {
           <div className="space-y-4">
             {categories.length === 0 ? (
               <p className={hintClass}>
-                아직 없습니다. 분류 없이도 용어는 등록되며(&lsquo;분류
-                없음&rsquo;), 나중에 여기서 만들어 지정할 수 있습니다.
+                아직 없습니다. 분류 없이도 용어는 등록되며(&lsquo;분류 없음&rsquo;), 나중에 여기서
+                만들어 지정할 수 있습니다.
               </p>
             ) : (
               <ul className="divide-y divide-line">
                 {categories.map((c) => (
-                  <li
-                    key={c.slug}
-                    className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0"
-                  >
+                  <li key={c.slug} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
                     <span
                       className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
                       style={{
@@ -690,12 +622,11 @@ export default function AdminDictionaryPage() {
                   <input
                     id="gc-name"
                     className={fieldClass}
-                    maxLength={CATEGORY_NAME_MAX - 1}
+                    maxLength={DICTIONARY_LIMITS.categoryName - 1}
                     value={editingCategory.draft.name}
                     onChange={(e) => {
                       patchCategory({ name: e.target.value });
-                      if (!categorySlugTouched)
-                        setCategorySlugInput(toAsciiSlug(e.target.value));
+                      if (!categorySlugTouched) setCategorySlugInput(toAsciiSlug(e.target.value));
                     }}
                   />
                 </Field>
@@ -705,8 +636,8 @@ export default function AdminDictionaryPage() {
                   label="slug"
                   hint={
                     editingCategory.slug
-                      ? "만들 때 정해진 값입니다 — 바꾸면 이 분류를 쓰던 용어가 전부 미분류로 떨어집니다."
-                      : "용어가 이 값을 가리킵니다."
+                      ? '만들 때 정해진 값입니다 — 바꾸면 이 분류를 쓰던 용어가 전부 미분류로 떨어집니다.'
+                      : '용어가 이 값을 가리킵니다.'
                   }
                 >
                   <input
@@ -724,8 +655,7 @@ export default function AdminDictionaryPage() {
                 <div>
                   <p className={labelClass}>색</p>
                   <p className={hintClass}>
-                    팔레트 슬롯 12개 중 하나 — 라이트·다크 두 벌이 이미 짝지어져
-                    있습니다.
+                    팔레트 슬롯 12개 중 하나 — 라이트·다크 두 벌이 이미 짝지어져 있습니다.
                   </p>
                   <div className="mt-2 grid grid-cols-6 gap-1.5">
                     {PALETTE.map((slot) => (
@@ -735,9 +665,7 @@ export default function AdminDictionaryPage() {
                           name="dictionary-palette"
                           value={slot.id}
                           checked={editingCategory.draft.palette === slot.id}
-                          onChange={() =>
-                            patchCategory({ palette: slot.id as PaletteId })
-                          }
+                          onChange={() => patchCategory({ palette: slot.id as PaletteId })}
                           className="peer sr-only"
                         />
                         <span className="flex flex-col items-center gap-1 rounded-lg border border-line bg-bg px-1.5 py-2 transition-colors hover:border-ink-dim peer-checked:border-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--text)]">
@@ -751,28 +679,20 @@ export default function AdminDictionaryPage() {
                           >
                             가
                           </span>
-                          <span className="truncate text-[10px] text-ink-dim">
-                            {slot.name}
-                          </span>
+                          <span className="truncate text-[10px] text-ink-dim">{slot.name}</span>
                         </span>
                       </label>
                     ))}
                   </div>
                 </div>
 
-                <Field
-                  htmlFor="gc-order"
-                  label="순서"
-                  hint="작을수록 필터 줄의 앞쪽"
-                >
+                <Field htmlFor="gc-order" label="순서" hint="작을수록 필터 줄의 앞쪽">
                   <input
                     id="gc-order"
                     type="number"
                     className={fieldClass}
                     value={editingCategory.draft.order}
-                    onChange={(e) =>
-                      patchCategory({ order: Number(e.target.value) || 0 })
-                    }
+                    onChange={(e) => patchCategory({ order: Number(e.target.value) || 0 })}
                   />
                 </Field>
 

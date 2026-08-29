@@ -3,6 +3,8 @@
 import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
 
 import {
+  CATEGORY_COLLECTION,
+  COLLECTION,
   normalizeDictionaryCategory,
   normalizeDictionaryTerm,
   sortDictionary,
@@ -11,13 +13,12 @@ import {
 import { auth, db } from '@/lib/firebase/client';
 import type {
   DictionaryCategory,
+  ExtractResponse,
   DictionaryCategoryDraft,
   DictionaryDraft,
   DictionaryTerm,
 } from '@/types/dictionary';
 
-const COLLECTION = 'dictionary';
-const CATEGORY_COLLECTION = 'dictionaryCategories';
 
 /** 관리 화면의 용어 목록. 정렬은 여기서 한다 (쿼리에서 문서가 빠지지 않도록) */
 export async function listDictionary(): Promise<DictionaryTerm[]> {
@@ -96,27 +97,6 @@ export async function deleteDictionaryCategory(slug: string): Promise<void> {
    AI 용어 추출 (발행 확인 화면)
    ═══════════════════════════════════════════════ */
 
-export interface ExtractedTerm {
-  term: string;
-  aliases: string[];
-  definition: string;
-  /** 영어 원어에서 만든 slug 제안 — 빈 문자열이면 화면이 로마자로 만든다 */
-  slug: string;
-}
-
-/** 이미 사전에 있어 후보에서 빠진 것 — 화면이 "이미 있음"으로 보여준다 */
-export interface SkippedTerm {
-  term: string;
-  existing: string;
-}
-
-export interface ExtractResult {
-  candidates: ExtractedTerm[];
-  skipped: SkippedTerm[];
-  /** 본문이 길어 뒤쪽을 보내지 못했는가 */
-  truncated: boolean;
-}
-
 /**
  * 본문 → 용어 후보.
  *
@@ -127,7 +107,7 @@ export interface ExtractResult {
 export async function extractDictionaryTerms(
   title: string,
   content: string,
-): Promise<ExtractResult> {
+): Promise<ExtractResponse> {
   const user = auth().currentUser;
   if (!user) throw new Error('로그인이 필요합니다.');
 
@@ -144,5 +124,5 @@ export async function extractDictionaryTerms(
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? `추출에 실패했습니다 (${res.status})`);
   }
-  return (await res.json()) as ExtractResult;
+  return (await res.json()) as ExtractResponse;
 }

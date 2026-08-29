@@ -94,3 +94,36 @@ export interface DictionaryAnchor {
   /** 표제어 + 별칭 — 본문에서 이 표기들을 찾는다 */
   surfaces: string[];
 }
+
+/* ═══════════════════════════════════════════════
+   AI 용어 추출 — 서버 라우트와 클라이언트가 함께 쓰는 응답 계약
+   ═══════════════════════════════════════════════ */
+
+/**
+ * 아래 세 타입은 `/api/dictionary/extract` 의 응답 형태다.
+ *
+ * 라우트와 클라이언트가 각자 선언하면 컴파일은 통과하는데 런타임 형태만 갈라진다 —
+ * 서버가 필드를 바꿔도 타입 에러가 나지 않고 `undefined` 로만 드러난다. 경계를 넘는
+ * 계약이므로 한 벌만 두고 양쪽이 여기서 가져간다.
+ */
+export interface ExtractedTerm {
+  term: string;
+  aliases: string[];
+  definition: string;
+  /** 영어 원어에서 만든 slug 제안 — 빈 문자열이면 화면이 로마자로 만든다 */
+  slug: string;
+}
+
+/** 이미 사전에 있어 후보에서 걷어낸 것 — 화면이 "이미 있음"으로 보여준다 */
+export interface SkippedTerm {
+  term: string;
+  /** 겹친 기존 용어의 slug */
+  existing: string;
+}
+
+export interface ExtractResponse {
+  candidates: ExtractedTerm[];
+  skipped: SkippedTerm[];
+  /** 본문이 길어 뒤쪽을 보내지 못했는가 */
+  truncated: boolean;
+}

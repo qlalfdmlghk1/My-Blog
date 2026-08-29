@@ -35,7 +35,11 @@ const nextConfig: NextConfig = {
    * 조각(`#slug`)은 서버로 오지 않고 브라우저가 그대로 들고 이동하므로 앵커도 살아 있다.
    */
   async redirects() {
-    return [{ source: '/glossary', destination: '/dictionary', permanent: true }];
+    return [
+      { source: '/glossary', destination: '/dictionary', permanent: true },
+      // 관리 화면도 함께 옮겼다 — 북마크가 관리자 브라우저에 남아 있다
+      { source: '/admin/glossary', destination: '/admin/dictionary', permanent: true },
+    ];
   },
 };
 

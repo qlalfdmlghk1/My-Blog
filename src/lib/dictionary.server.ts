@@ -1,6 +1,8 @@
 import 'server-only';
 
 import {
+  CATEGORY_COLLECTION,
+  COLLECTION,
   normalizeDictionaryCategory,
   normalizeDictionaryTerm,
   referencesByTerm,
@@ -12,8 +14,7 @@ import { safeRead, warnUnconfigured } from '@/lib/safe-read';
 import type { DictionaryReference } from '@/lib/dictionary';
 import type { DictionaryCategory, DictionaryTerm } from '@/types/dictionary';
 
-export const COLLECTION = 'dictionary';
-export const CATEGORY_COLLECTION = 'dictionaryCategories';
+export { CATEGORY_COLLECTION, COLLECTION };
 
 /**
  * 용어 목록 — 사전 페이지와 본문 자동 링크가 함께 쓰는 유일한 읽기 지점.

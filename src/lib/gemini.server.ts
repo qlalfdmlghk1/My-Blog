@@ -14,15 +14,20 @@ import 'server-only';
 /** 기본 모델. 값이 바뀔 수 있으므로 env 로 덮어쓸 수 있게 둔다 */
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
+/**
+ * 응답을 기다리는 상한.
+ *
+ * 라우트의 `maxDuration` 은 **함수 실행** 상한일 뿐 fetch 를 끊지 않는다. 모델이
+ * 늦어지면 함수 슬롯을 플랫폼 타임아웃까지 붙잡고, 화면에는 여기서 공들여 나눠둔
+ * 원인별 문구 대신 원인 없는 실패만 남는다. 라우트 상한(30~60초)보다 짧게 잡아
+ * **우리가 먼저 끊고 이유를 말한다.**
+ */
+const TIMEOUT_MS = 25_000;
+
 export type GeminiResult<T> =
   | { ok: true; data: T }
   /** 그대로 응답에 실어 보낼 수 있는 형태 — 호출부가 문구를 다시 짓지 않는다 */
   | { ok: false; status: number; error: string };
-
-/** 키가 없으면 기능만 꺼지고 나머지 화면은 그대로 돌아간다 */
-export function hasGeminiKey(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY);
-}
 
 interface GeminiPart {
   text?: string;
@@ -75,8 +80,16 @@ export async function generateJson<T>(
           temperature,
         },
       }),
+      signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      return {
+        ok: false,
+        status: 504,
+        error: '응답이 너무 오래 걸려 중단했습니다. 본문을 줄이고 다시 시도하세요.',
+      };
+    }
     return {
       ok: false,
       status: 502,

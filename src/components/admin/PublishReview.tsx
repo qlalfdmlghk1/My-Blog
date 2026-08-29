@@ -16,18 +16,17 @@ import {
   hintClass,
   labelClass,
 } from '@/components/admin/ui';
-import { DICTIONARY_LIMITS } from '@/lib/dictionary';
+import { DICTIONARY_LIMITS, dictionaryDraftError, parseAliases } from '@/lib/dictionary';
 import {
   createDictionaryTerm,
   extractDictionaryTerms,
   isDictionarySlugTaken,
   listDictionaryCategories,
-  type ExtractResult,
 } from '@/lib/dictionary.client';
 import { renderPreview } from '@/lib/markdown-preview';
 import { revalidateDictionary, revalidatePost, updatePost } from '@/lib/posts.client';
-import { toAsciiSlug } from '@/lib/slug';
-import type { DictionaryCategory } from '@/types/dictionary';
+import { sanitizeAsciiSlug, toAsciiSlug } from '@/lib/slug';
+import type { DictionaryCategory, ExtractResponse } from '@/types/dictionary';
 import type { Post, PostDraft } from '@/types/post';
 
 /**
@@ -46,7 +45,7 @@ export function PublishReview({ post }: { post: Post }) {
 
   const [categories, setCategories] = useState<DictionaryCategory[] | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [skipped, setSkipped] = useState<ExtractResult['skipped']>([]);
+  const [skipped, setSkipped] = useState<ExtractResponse['skipped']>([]);
   const [truncated, setTruncated] = useState(false);
   /** 추출을 한 번이라도 돌렸는가 — 0건과 "아직 안 돌림"은 다른 상태다 */
   const [extracted, setExtracted] = useState(false);
@@ -124,10 +123,16 @@ export function PublishReview({ post }: { post: Post }) {
   async function register() {
     if (chosen.length === 0) return;
 
-    // 등록 전에 한 번에 검사한다 — 절반쯤 쓰다 멈추면 무엇이 들어갔는지 알 수 없다
+    // slug 은 Firestore 문서 ID 가 된다 — `/` 나 공백이 섞이면 경로가 갈라져
+    // 규칙 매치(`match /dictionary/{termSlug}`) 밖으로 나가고 원인 불명의 권한 오류만 뜬다.
+    // 관리 화면이 toAsciiSlug 로 거르는 것과 같은 규약을 여기서도 지킨다.
+    const prepared = candidates
+      .filter((c) => c.selected)
+      .map((c) => ({ ...c, slug: sanitizeAsciiSlug(c.slug) }));
+
     const seen = new Set<string>();
-    for (const c of chosen) {
-      const invalid = validate(c, seen);
+    for (const c of prepared) {
+      const invalid = validate(c, seen, post.slug);
       if (invalid) {
         setError(invalid);
         return;
@@ -138,12 +143,24 @@ export function PublishReview({ post }: { post: Post }) {
     setBusy('용어를 등록하는 중…');
     setError(null);
     setNotice(null);
+
+    /** 실제로 Firestore 에 들어간 후보의 id — 중간에 끊겨도 무엇이 들어갔는지 안다 */
+    const written: number[] = [];
+    let failure: string | null = null;
+
     try {
-      for (const c of chosen) {
-        if (await isDictionarySlugTaken(c.slug)) {
-          setError(`slug "${c.slug}" 는 이미 사용 중입니다. 다른 값으로 고치세요.`);
-          return;
-        }
+      // 중복 검사를 **쓰기 전에 전부** 끝낸다. 쓰기 루프 안에서 검사하면 k 번째에서 걸렸을 때
+      // 앞의 k-1 개는 이미 들어갔는데 화면 정리·재검증은 건너뛰고, 다시 '등록'을 누르면
+      // 방금 자기가 만든 첫 용어에 "이미 사용 중"으로 막혀 남은 후보를 영영 넣을 수 없다.
+      const taken = await Promise.all(prepared.map((c) => isDictionarySlugTaken(c.slug)));
+      const conflict = prepared.find((_, i) => taken[i]);
+      if (conflict) {
+        setError(`slug "${conflict.slug}" 는 이미 사용 중입니다. 다른 값으로 고치세요.`);
+        setBusy(null);
+        return;
+      }
+
+      for (const c of prepared) {
         await createDictionaryTerm(c.slug, {
           term: c.term.trim(),
           aliases: parseAliases(c.aliasInput),
@@ -151,24 +168,47 @@ export function PublishReview({ post }: { post: Post }) {
           postSlug: post.slug,
           category: c.category,
         });
+        written.push(c.id);
       }
-
-      // 용어 링크는 저장된 본문이 아니라 렌더 시점에 붙는다 — 사전이 바뀌면
-      // 그 낱말을 쓴 글의 HTML 이 전부 낡는다 (posts.client.ts 의 주석 참조).
-      await revalidateDictionary();
-
-      const count = chosen.length;
-      setRegistered((prev) => prev + count);
-      setCandidates((prev) => prev.filter((c) => !c.selected));
-      setNotice(`용어 ${count}개를 사전에 등록했습니다.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '등록에 실패했습니다.');
-    } finally {
-      setBusy(null);
+      failure = err instanceof Error ? err.message : '등록에 실패했습니다.';
+    }
+
+    // 한 건이라도 썼으면 화면과 정적 페이지를 **그 상태에 맞춘다.** 실패했다고 건너뛰면
+    // 들어간 용어에 본문 링크가 붙지 않고, 후보 목록에도 남아 다시 누르게 된다.
+    if (written.length > 0) {
+      setRegistered((prev) => prev + written.length);
+      setCandidates((prev) => prev.filter((c) => !written.includes(c.id)));
+      try {
+        // 용어 링크는 저장된 본문이 아니라 렌더 시점에 붙는다 — 사전이 바뀌면
+        // 그 낱말을 쓴 글의 HTML 이 전부 낡는다 (posts.client.ts 의 주석 참조).
+        await revalidateDictionary();
+      } catch {
+        failure ??= '용어는 등록됐지만 정적 페이지 갱신에 실패했습니다. 사전 관리에서 다시 저장하면 갱신됩니다.';
+      }
+    }
+
+    setBusy(null);
+    if (failure) {
+      setError(
+        written.length > 0
+          ? `${written.length}개까지 등록한 뒤 멈췄습니다 — ${failure}`
+          : failure,
+      );
+    } else {
+      setNotice(`용어 ${written.length}개를 사전에 등록했습니다.`);
     }
   }
 
   async function publish() {
+    // 이 화면은 주소로 직접 들어올 수 있다(북마크·뒤로가기·새로고침). 에디터의 validate 를
+    // 거치지 않은 초안이 그대로 나가지 않도록 최소 기준을 여기서 한 번 더 본다 —
+    // 특히 본문이 빈 글은 에디터에서는 발행이 막히는데 이 경로에는 관문이 없었다.
+    const invalid = publishError(post);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
     setBusy('발행 중…');
     setError(null);
     try {
@@ -451,42 +491,41 @@ interface Candidate {
   category: string;
 }
 
-function parseAliases(input: string): string[] {
-  // 빈 별칭이 남으면 자동 링크 정규식이 빈 대안을 갖게 되어 본문의 모든 위치에
-  // 매칭된다 (lib/dictionary.ts 의 buildDictionaryIndex).
-  return [
-    ...new Set(
-      input
-        .split(',')
-        .map((a) => a.trim())
-        .filter(Boolean),
-    ),
-  ];
+/**
+ * 후보 한 건의 저장 가능 여부.
+ *
+ * 길이·필수 항목 검사는 `dictionaryDraftError` 한 곳에 있다 — 관리 화면과 같은 함수를
+ * 써야 한 화면에서 저장되는 값이 다른 화면에서 규칙에 막히는 일이 없다.
+ * 여기서는 이 화면에만 있는 조건(slug 생성 실패, 후보끼리 겹침)만 본다.
+ */
+function validate(c: Candidate, taken: ReadonlySet<string>, postSlug: string): string | null {
+  const term = c.term.trim() || '이름 없는 후보';
+  if (!c.slug) {
+    return `"${term}" 의 slug 을 만들지 못했습니다 — 영문·숫자로 직접 입력하세요.`;
+  }
+  if (taken.has(c.slug)) return `slug "${c.slug}" 가 후보 안에서 겹칩니다.`;
+  // 분류는 선택 사항이라 여기서 막지 않는다 — 비우면 '분류 없음'으로 등록된다
+
+  return dictionaryDraftError({
+    term: c.term,
+    definition: c.definition,
+    aliases: parseAliases(c.aliasInput),
+    postSlug,
+  });
 }
 
 /**
- * firestore.rules 의 validDictionaryTerm 과 같은 상한을 화면이 먼저 잡는다.
- * 여기서 안 막으면 규칙에 걸려 `Missing or insufficient permissions.` 원문만 뜨고,
- * 무엇이 잘못됐는지 화면에 남지 않는다 (관리 화면이 쓰는 규약과 같다).
+ * 발행 가능 여부 — 에디터 `validate()` 의 최소 부분집합.
+ *
+ * 카테고리가 목록에 남아 있는지까지는 보지 않는다(그건 목록 조회가 필요하고,
+ * 규칙이 최종적으로 막는다). 여기서 잡는 것은 **이 경로로만 새어 나갈 수 있는** 것들이다.
  */
-function validate(c: Candidate, taken: ReadonlySet<string>): string | null {
-  const term = c.term.trim();
-  const definition = c.definition.trim();
-  if (!term) return '표제어가 빈 후보가 있습니다.';
-  if (!definition) return `"${term}" 의 정의가 비어 있습니다.`;
-  if (!c.slug.trim()) {
-    return `"${term}" 의 slug 을 만들지 못했습니다 — 로마자로 옮길 글자가 없습니다. 직접 입력하세요.`;
-  }
-  if (taken.has(c.slug)) return `slug "${c.slug}" 가 후보 안에서 겹칩니다.`;
-  // 분류는 선택 사항이다 — 비어 있으면 '분류 없음'으로 등록된다
-  if (term.length >= DICTIONARY_LIMITS.term) {
-    return `표제어는 ${DICTIONARY_LIMITS.term}자 미만이어야 합니다 ("${term}").`;
-  }
-  if (definition.length >= DICTIONARY_LIMITS.definition) {
-    return `"${term}" 의 정의는 ${DICTIONARY_LIMITS.definition}자 미만이어야 합니다.`;
-  }
-  if (parseAliases(c.aliasInput).length > DICTIONARY_LIMITS.aliases) {
-    return `"${term}" 의 별칭은 최대 ${DICTIONARY_LIMITS.aliases}개입니다.`;
+function publishError(post: Post): string | null {
+  if (!post.title.trim()) return '제목이 비어 있습니다. 편집 화면에서 채운 뒤 발행하세요.';
+  if (!post.content.trim()) return '본문이 비어 있습니다. 편집 화면에서 채운 뒤 발행하세요.';
+  if (!post.slug.trim()) return 'slug 이 비어 있습니다. 편집 화면에서 채우세요.';
+  if (!post.category || !post.subcategory) {
+    return '분류가 비어 있습니다. 편집 화면에서 카테고리·소분류를 고르세요.';
   }
   return null;
 }

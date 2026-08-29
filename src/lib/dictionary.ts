@@ -23,7 +23,21 @@ export const DICTIONARY_LIMITS = {
   definition: 600,
   aliases: 10,
   postSlug: 200,
+  /** 분류 이름 — firestore.rules 의 validDictionaryCategory */
+  categoryName: 60,
+  /** 용어가 가리키는 분류 slug — validDictionaryTerm */
+  category: 100,
 } as const;
+
+/**
+ * 컬렉션 이름 — 서버·클라이언트가 같은 상수를 본다.
+ *
+ * `.server.ts` 는 `import 'server-only'` 라 클라이언트가 읽을 수 없어, 상수를 거기 두면
+ * 클라이언트가 같은 문자열을 다시 적게 된다. 방금 glossary → dictionary 리네임이 정확히
+ * "두 곳에 적힌 이름을 함께 고치는" 작업이었다 — 한쪽이 남으면 조용히 빈 컬렉션을 본다.
+ */
+export const COLLECTION = 'dictionary';
+export const CATEGORY_COLLECTION = 'dictionaryCategories';
 
 /** Firestore 문서 → DictionaryTerm. 손상된 필드는 버리지 않고 안전한 값으로 떨어뜨린다 */
 export function normalizeDictionaryTerm(
@@ -195,6 +209,67 @@ export function dictionaryFacets(
 }
 
 /* ═══════════════════════════════════════════════
+   입력 정리 · 검증 (관리 화면과 발행 확인 화면이 함께 쓴다)
+   ═══════════════════════════════════════════════ */
+
+/**
+ * 쉼표로 끊고 빈 조각을 버린다.
+ *
+ * 빈 별칭이 남으면 자동 링크 정규식이 빈 대안을 갖게 되어 본문의 **모든 위치**에
+ * 매칭된다(`buildDictionaryIndex`). 두 화면이 각자 나누면 그 규칙이 두 곳이 된다.
+ */
+export function parseAliases(input: string): string[] {
+  return [
+    ...new Set(
+      input
+        .split(',')
+        .map((a) => a.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+/**
+ * 저장 전 검사 — `firestore.rules` 의 `validDictionaryTerm` 과 같은 기준.
+ *
+ * 규칙이 최종 방어선이고 여기는 사람에게 이유를 보여주는 자리다. 화면마다 따로 적으면
+ * 규칙이 늘 때 한쪽만 반영돼, 한 화면에서는 저장되는 값이 다른 화면에서는
+ * `Missing or insufficient permissions.` 원문으로 막힌다.
+ *
+ * @returns 문제가 있으면 사람이 읽을 문구, 없으면 null
+ */
+export function dictionaryDraftError(draft: {
+  term: string;
+  definition: string;
+  aliases: string[];
+  postSlug: string;
+}): string | null {
+  const term = draft.term.trim();
+  const definition = draft.definition.trim();
+
+  if (!term) return '표제어를 입력하세요.';
+  if (!definition) return '정의를 입력하세요. 사전 항목은 정의가 본체입니다.';
+  if (term.length >= DICTIONARY_LIMITS.term) {
+    return `표제어는 ${DICTIONARY_LIMITS.term}자 미만이어야 합니다 (현재 ${term.length}자).`;
+  }
+  if (definition.length >= DICTIONARY_LIMITS.definition) {
+    return `정의는 ${DICTIONARY_LIMITS.definition}자 미만이어야 합니다 (현재 ${definition.length}자).`;
+  }
+  if (draft.aliases.length > DICTIONARY_LIMITS.aliases) {
+    return `별칭은 최대 ${DICTIONARY_LIMITS.aliases}개입니다 (현재 ${draft.aliases.length}개).`;
+  }
+  // 별칭 하나가 길면 그 문자열이 글을 그릴 때마다 정규식에 통째로 들어간다
+  const tooLong = draft.aliases.find((a) => a.length >= DICTIONARY_LIMITS.term);
+  if (tooLong) {
+    return `별칭 하나는 ${DICTIONARY_LIMITS.term}자 미만이어야 합니다 ("${tooLong.slice(0, 20)}…").`;
+  }
+  if (draft.postSlug.trim().length >= DICTIONARY_LIMITS.postSlug) {
+    return `연결할 글 slug 은 ${DICTIONARY_LIMITS.postSlug}자 미만이어야 합니다.`;
+  }
+  return null;
+}
+
+/* ═══════════════════════════════════════════════
    용어 → 글 역참조
    ═══════════════════════════════════════════════ */
 
@@ -205,15 +280,31 @@ export interface DictionaryReference {
 }
 
 /**
- * 코드 안의 낱말은 세지 않는다.
+ * 렌더러가 용어 링크를 걸지 않는 자리를 미리 걷어낸다.
  *
- * 본문 렌더러는 코드 블록·인라인 코드를 별도 토큰으로 받아 용어 링크를 걸지 않는다
- * (`markdown.ts` 의 renderer.text 에는 codespan 이 오지 않는다). 여기서는 마크다운
- * 원문을 훑으므로 그 구분이 없어, 코드 안의 `useState` 같은 낱말까지 "이 글이 그 용어를
- * 다룬다"로 세게 된다. 화면에 링크가 없는데 목록에는 뜨는 어긋남이 생기므로 먼저 걷어낸다.
+ * `markdown.ts` 는 **본문 텍스트 토큰에만** 링크를 건다 — 코드 블록·인라인 코드는 다른
+ * 렌더러가 받고, 제목과 링크 라벨은 `suppressDictionary` 로 꺼둔다. 여기서는 마크다운
+ * 원문을 훑으므로 그 구분이 없어, 그대로 두면 **화면에 점선이 없는데 사전의 관련글에는
+ * 뜨는** 어긋남이 생긴다 — 이 함수의 존재 이유가 그 어긋남을 막는 것이다.
+ *
+ * 링크는 라벨이 아니라 **주소만** 지운다(`](/posts/server-component)`). 주소는 사람이
+ * 읽는 글자가 아니고, 라벨은 링크 안에서만 억제될 뿐 글에 보이는 낱말이다.
  */
-function stripCode(markdown: string): string {
-  return markdown.replace(/```[\s\S]*?```/g, ' ').replace(/`[^`\n]*`/g, ' ');
+function stripNonProse(markdown: string): string {
+  return (
+    markdown
+      // 펜스 코드블록 — 닫힌 것 먼저, 남은 여는 펜스는 문서 끝까지가 코드다.
+      // (`$` 를 대안으로 쓰면 /m 에서 줄 끝에 걸려 여는 줄만 지워진다)
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/```[\s\S]*$/, ' ')
+      .replace(/~~~[\s\S]*?~~~/g, ' ')
+      .replace(/~~~[\s\S]*$/, ' ')
+      .replace(/`[^`\n]*`/g, ' ')
+      // 제목 줄 — 렌더러가 제목 안에서는 링크를 걸지 않는다
+      .replace(/^ {0,3}#{1,6} .*$/gm, ' ')
+      // 링크·이미지의 주소 부분만 (라벨은 남긴다)
+      .replace(/\]\([^)]*\)/g, '] ')
+  );
 }
 
 /**
@@ -239,7 +330,7 @@ export function referencesByTerm(
     for (const post of posts) {
       // 글 하나를 그릴 때와 같은 방식 — 한 글에서 같은 용어는 한 번만 센다
       const linked = new Set<string>();
-      splitByDictionary(stripCode(post.content), index, linked);
+      splitByDictionary(stripNonProse(post.content), index, linked);
       for (const termSlug of linked) {
         const list = found.get(termSlug);
         if (list) list.push(post.slug);

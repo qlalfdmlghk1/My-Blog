@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 
 import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
-import { DICTIONARY_LIMITS } from '@/lib/dictionary';
+import {
+  buildDictionaryIndex,
+  DICTIONARY_LIMITS,
+  toDictionaryAnchors,
+} from '@/lib/dictionary';
 import { getDictionary } from '@/lib/dictionary.server';
 import { generateJson } from '@/lib/gemini.server';
 import { sanitizeAsciiSlug } from '@/lib/slug';
+import type { ExtractedTerm, ExtractResponse, SkippedTerm } from '@/types/dictionary';
 
 /**
  * 본문에서 용어 후보를 뽑는다 — Gemini 호출은 **여기서만** 일어난다.
@@ -38,35 +43,6 @@ const MAX_CONTENT = 20_000;
 
 /** 한 번에 받을 후보 수 — 이보다 많으면 사람이 확인하는 일이 추출보다 오래 걸린다 */
 const MAX_CANDIDATES = 12;
-
-export interface ExtractedTerm {
-  term: string;
-  aliases: string[];
-  definition: string;
-  /**
-   * 영어 원어에서 만든 slug 제안 — 없으면 빈 문자열이고 화면이 로마자로 떨어뜨린다.
-   *
-   * `toAsciiSlug` 는 한글을 **발음 그대로** 옮긴다(`서버 컴포넌트` → `seobeo-keomponeonteu`).
-   * 주소로는 성립하지만 읽는 사람에게는 아무것도 알려주지 않는다. 그 방식을 택했던 이유는
-   * 번역기를 물리면 키·비용·실패 폴백이 생기고 같은 말이 호출마다 다른 주소가 되기
-   * 때문인데(lib/slug.ts), **여기서는 이미 모델을 부르고 있어** 그 대가가 새로 들지 않는다.
-   */
-  slug: string;
-}
-
-/** 이미 사전에 있어 후보에서 걷어낸 것 — 화면이 "이미 있음"으로 보여준다 */
-export interface SkippedTerm {
-  term: string;
-  /** 겹친 기존 용어의 slug */
-  existing: string;
-}
-
-export interface ExtractResponse {
-  candidates: ExtractedTerm[];
-  skipped: SkippedTerm[];
-  /** 본문이 길어 뒤쪽을 보내지 못했는가 */
-  truncated: boolean;
-}
 
 const PROMPT = [
   '너는 기술 블로그의 용어 사전을 만드는 편집자다.',
@@ -155,14 +131,11 @@ ${content}`,
 
   // 이미 있는 용어는 **서버에서** 걷어낸다. 사전 전체를 클라이언트로 내려 비교하면
   // 정의문까지 딸려가고, 무엇이 이미 있는지 판단하는 규칙이 두 곳으로 나뉜다.
+  // 표기 정규화와 "먼저 등록된 쪽이 이긴다" 규칙을 여기서 다시 짜지 않는다 —
+  // 본문 자동 링크가 쓰는 색인을 그대로 쓴다. 두 판정이 갈라지면 이미 링크가 걸리는
+  // 용어를 "새 후보"라고 다시 등록하게 된다.
   const existing = await getDictionary();
-  const bySurface = new Map<string, string>();
-  for (const term of existing) {
-    for (const surface of [term.term, ...term.aliases]) {
-      const key = surface.trim().toLowerCase();
-      if (key && !bySurface.has(key)) bySurface.set(key, term.slug);
-    }
-  }
+  const { bySurface } = buildDictionaryIndex(toDictionaryAnchors(existing));
 
   const candidates: ExtractedTerm[] = [];
   const skipped: SkippedTerm[] = [];
@@ -207,7 +180,9 @@ function normalizeExtracted(value: unknown): ExtractedTerm[] {
           ...new Set(
             item.aliases
               .map((a) => String(a).trim())
-              .filter((a) => a && a.toLowerCase() !== key),
+              .filter((a) => a && a.toLowerCase() !== key)
+              // 별칭 하나가 길면 글을 그릴 때마다 그 문자열이 통째로 정규식에 들어간다
+              .map((a) => a.slice(0, DICTIONARY_LIMITS.term - 1)),
           ),
         ].slice(0, DICTIONARY_LIMITS.aliases)
       : [];

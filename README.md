@@ -302,6 +302,9 @@ Vercel — GitHub 연동 자동 배포. 프로젝트 설정에 `.env.example`의
 
 - `FIREBASE_ADMIN_PRIVATE_KEY`는 줄바꿈을 `\n` 리터럴로 넣는다 ([admin.ts](src/lib/firebase/admin.ts)에서 되돌린다)
 - `NEXT_PUBLIC_SITE_URL`을 실제 도메인으로 — RSS·sitemap·OG의 절대경로에 쓰인다
+- `GEMINI_API_KEY`는 **서버 전용**이라 `.env.local`에 넣어도 배포본에는 없다. Vercel 프로젝트 설정에
+  따로 등록해야 발행 확인 화면의 용어 추출이 배포본에서 동작한다 (없으면 그 버튼만 503으로 떨어지고
+  발행·사전은 그대로 돌아간다)
 
 ## 남은 작업
 

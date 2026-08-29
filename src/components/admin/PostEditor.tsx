@@ -24,6 +24,7 @@ import {
   deletePost,
   isSlugTaken,
   revalidatePost,
+  suggestPostSlug,
   updatePost,
   uploadImage,
 } from '@/lib/posts.client';
@@ -142,6 +143,30 @@ export function PostEditor({ existing }: { existing?: Post }) {
     if (!slugEdited) setSlug(toAsciiSlug(next));
   }
 
+  /**
+   * 제목을 영어 slug 으로 옮겨 받는다.
+   *
+   * 자동으로 부르지 않는다 — 제목을 한 글자 칠 때마다 모델을 부르게 되고, 그 비용과
+   * 대기가 글쓰기 흐름에 얹힌다. 받은 값은 `slugEdited` 로 잠가 제목을 더 고쳐도
+   * 로마자로 되돌아가지 않게 한다 (되돌리려면 '제목에서 다시 만들기').
+   */
+  async function suggestSlug() {
+    if (!title.trim()) {
+      setError('제목을 먼저 입력하세요.');
+      return;
+    }
+    setBusy('slug 을 지어보는 중…');
+    setError(null);
+    try {
+      setSlug(await suggestPostSlug(title, content));
+      setSlugEdited(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'slug 제안에 실패했습니다.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /** 붙여넣기로 이미지가 들어오면 업로드하고 커서 위치에 마크다운을 삽입한다 */
   async function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     const file = [...e.clipboardData.items]
@@ -210,13 +235,28 @@ export function PostEditor({ existing }: { existing?: Post }) {
     return null;
   }
 
-  async function save(status: PostStatus) {
-    const invalid = validate(status);
+  /**
+   * 저장 공통부 — 성공하면 문서 ID 를 돌려준다.
+   *
+   * ID 를 돌려주는 이유는 발행 확인 화면 때문이다. 새 글은 저장하기 전에 ID 가
+   * 없고, 확인 화면은 본문을 넘겨받는 대신 ID 로 다시 읽는다(그래야 새로고침에도
+   * 같은 화면이 나온다). 저장이 끝난 자리에서만 알 수 있는 값이라 여기서 돌려준다.
+   *
+   * @param validateAs 검사에 쓸 상태. 확인 화면으로 넘길 때는 임시저장으로 쓰면서도
+   *   발행 기준(본문이 비어 있지 않은가)으로 미리 걸러야 한다 — 확인 화면까지 갔다가
+   *   거기서 막히면 되돌아와야 할 이유를 늦게 알게 된다.
+   */
+  async function persist(
+    status: PostStatus,
+    label: string,
+    validateAs: PostStatus = status,
+  ): Promise<string | null> {
+    const invalid = validate(validateAs);
     if (invalid) {
       setError(invalid);
-      return;
+      return null;
     }
-    setBusy(status === 'published' ? '발행 중…' : '저장 중…');
+    setBusy(label);
     setError(null);
     try {
       // 검사와 저장이 같은 값을 봐야 한다 — trim 전 값으로 조회하면
@@ -226,7 +266,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
 
       if (await isSlugTaken(normalizedSlug, existing?.id)) {
         setError(`slug "${normalizedSlug}" 는 이미 사용 중입니다.`);
-        return;
+        return null;
       }
 
       const draft: PostDraft = {
@@ -241,10 +281,12 @@ export function PostEditor({ existing }: { existing?: Post }) {
         status,
       };
 
+      let id: string;
       if (existing) {
         await updatePost(existing.id, draft, existing.status === 'published');
+        id = existing.id;
       } else {
-        await createPost(draft);
+        id = await createPost(draft);
       }
 
       // draft 로 되돌린 경우에도 기존 정적 페이지를 걷어내야 하므로 항상 재생성한다.
@@ -252,13 +294,35 @@ export function PostEditor({ existing }: { existing?: Post }) {
       const affected = [...new Set([...tags, ...(existing?.tags ?? [])])];
       await revalidatePost(draft.slug, affected);
 
-      router.push('/admin');
-      router.refresh();
+      return id;
     } catch (err) {
       setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      return null;
     } finally {
       setBusy(null);
     }
+  }
+
+  async function save(status: PostStatus) {
+    const id = await persist(status, status === 'published' ? '발행 중…' : '저장 중…');
+    if (!id) return;
+    router.push('/admin');
+    router.refresh();
+  }
+
+  /**
+   * 발행 버튼 — 바로 내보내지 않고 **확인 화면으로 넘긴다.**
+   *
+   * 상태는 올리지 않는다. 새 글은 임시저장인 채로 저장하고, 이미 발행된 글은
+   * 발행인 채로 둔다 — 수정 중이던 발행 글이 확인 화면을 여는 동안 블로그에서
+   * 내려가면 안 되기 때문이다. 상태를 published 로 바꾸는 것은 확인 화면의
+   * 확정 버튼 하나뿐이다.
+   */
+  async function saveForReview() {
+    const status: PostStatus = existing?.status === 'published' ? 'published' : 'draft';
+    const id = await persist(status, '저장 중…', 'published');
+    if (!id) return;
+    router.push(`/admin/publish/${id}`);
   }
 
   async function remove() {
@@ -310,9 +374,9 @@ export function PostEditor({ existing }: { existing?: Post }) {
               type="button"
               className={btnPrimary}
               disabled={Boolean(busy)}
-              onClick={() => void save('published')}
+              onClick={() => void saveForReview()}
             >
-              발행
+              발행 확인
             </button>
             {existing && (
               <button
@@ -357,21 +421,31 @@ export function PostEditor({ existing }: { existing?: Post }) {
                 hint={
                   slugEdited
                     ? `발행 주소 — /posts/${slug || '…'}`
-                    : `발행 주소 — /posts/${slug || '…'} · 한글 제목은 로마자 발음으로 옮깁니다. 영어 낱말로 쓰려면 직접 고치세요.`
+                    : `발행 주소 — /posts/${slug || '…'} · 한글 제목은 로마자 발음으로 옮깁니다. 영어 주소를 원하면 'AI 추천'을 누르거나 직접 고치세요.`
                 }
                 aside={
-                  slugEdited ? (
+                  <span className="flex items-center gap-2.5">
                     <button
                       type="button"
-                      className="text-[11px] font-medium text-ink-dim hover:text-ink"
-                      onClick={() => {
-                        setSlugEdited(false);
-                        setSlug(toAsciiSlug(title));
-                      }}
+                      className="text-[11px] font-medium text-ink-dim hover:text-ink disabled:opacity-50"
+                      disabled={Boolean(busy)}
+                      onClick={() => void suggestSlug()}
                     >
-                      제목에서 다시 만들기
+                      AI 추천
                     </button>
-                  ) : null
+                    {slugEdited && (
+                      <button
+                        type="button"
+                        className="text-[11px] font-medium text-ink-dim hover:text-ink"
+                        onClick={() => {
+                          setSlugEdited(false);
+                          setSlug(toAsciiSlug(title));
+                        }}
+                      >
+                        제목에서 다시 만들기
+                      </button>
+                    )}
+                  </span>
                 }
               >
                 <input

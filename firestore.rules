@@ -56,14 +56,37 @@ service cloud.firestore {
   // 용어 사전. 정의문은 길이만 제한한다 — 내용 검사는 규칙이 할 수 있는 일이 아니다.
   // aliases 는 본문 자동 링크가 훑는 목록이라 개수를 묶어둔다. 열어두면 표기 수천 개가
   // 든 문서 하나로 글 렌더링마다 거대한 정규식이 만들어진다.
-  function validGlossaryTerm(d) {
-    return d.keys().hasAll(['term', 'aliases', 'definition', 'postSlug'])
+  function validDictionaryTerm(d) {
+    return d.keys().hasAll(['term', 'aliases', 'definition', 'postSlug', 'category'])
         && d.term is string && d.term.size() > 0 && d.term.size() < 80
         && d.aliases is list && d.aliases.size() <= 10
         && d.definition is string && d.definition.size() > 0 && d.definition.size() < 600
         // 빈 문자열 = 연결된 글 없음. 여기서 글의 존재까지 확인하지는 않는다 —
         // 초안 상태의 글을 미리 이어둘 수 있어야 하고, 끊긴 링크는 404 로 끝난다.
-        && d.postSlug is string && d.postSlug.size() < 200;
+        && d.postSlug is string && d.postSlug.size() < 200
+        // 분류는 **선택 사항**이다. 빈 문자열 = 분류 없음.
+        //
+        // 필수로 두면 용어를 만드는 순간 분류까지 정하도록 강요하게 되는데, 글을 쓰다
+        // 발견한 낱말을 급히 넣는 자리에서는 어디에 속하는지 아직 모르는 편이 흔하다.
+        // 그때 강요하면 아무 분류나 고르게 되고, 그렇게 들어간 값이 나중에 진짜 분류처럼
+        // 보인다. 비워 두면 사전에서 '분류 없음'으로 모여 나중에 손볼 대상이 드러난다.
+        //
+        // 존재까지는 확인하지 않는다 — 글은 분류가 URL(`/categories/{slug}`)을 이루므로
+        // 없는 값을 가리키면 죽은 링크가 생기지만, 용어의 분류는 사전 안의 필터 축일 뿐이라
+        // 없는 값을 가리켜도 '분류 없음'으로 떨어질 뿐이다. exists() 를 걸면 분류를 지운 뒤
+        // 그 분류를 쓰던 용어의 수정 자체가 막혀, 고치려는 사람이 손댈 수단을 잃는다.
+        && d.category is string && d.category.size() < 100;
+  }
+
+  // 용어 분류 — 글 카테고리와 같은 규약(슬롯 ID 로 색 저장)을 따르되 별개 컬렉션이다.
+  // 팔레트 슬롯 목록은 코드에 고정된 12개이므로 여기 적어두는 비용이 없고,
+  // 임의의 문자열이 CSS 변수 이름에 섞이는 걸 막는다 (validCategory 와 같은 이유).
+  function validDictionaryCategory(d) {
+    return d.keys().hasAll(['name', 'palette', 'order'])
+        && d.name is string && d.name.size() > 0 && d.name.size() < 60
+        && d.palette in ['coral', 'blue', 'purple', 'amber', 'teal', 'pink',
+                         'lime', 'cyan', 'rose', 'indigo', 'brown', 'slate']
+        && d.order is number;
   }
 
   function validSubcategory(d) {
@@ -99,10 +122,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    match /glossary/{termSlug} {
+    match /dictionaryCategories/{categorySlug} {
+      // 분류는 공개 정보다 — 사전 페이지의 필터가 로그인 없이 읽는다.
+      allow read: if true;
+      allow create, update: if isAdmin() && validDictionaryCategory(request.resource.data);
+      // 소속 용어가 남았는지는 관리 화면이 막는다 (규칙은 집계 질의를 할 수 없다).
+      // 실수로 지워도 용어가 사라지지는 않고 미분류로 떨어진다.
+      allow delete: if isAdmin();
+    }
+
+    match /dictionary/{termSlug} {
       // 용어 정의는 공개 정보다 — 사전 페이지와 본문 링크가 로그인 없이 읽는다.
       allow read: if true;
-      allow create, update: if isAdmin() && validGlossaryTerm(request.resource.data);
+      allow create, update: if isAdmin() && validDictionaryTerm(request.resource.data);
       // 지운 용어를 가리키던 본문 링크는 사전 페이지의 빈 앵커로 떨어질 뿐이라
       // 카테고리처럼 "글이 남아 있는지" 확인할 필요가 없다.
       allow delete: if isAdmin();

@@ -24,9 +24,22 @@ import { toAsciiSlug } from '@/lib/slug';
 import type { GlossaryDraft, GlossaryTerm } from '@/types/glossary';
 
 /** 편집 중인 대상 — 새로 만드는 중이면 null slug */
-type Editing = { slug: string | null; draft: GlossaryDraft };
+interface Editing {
+  slug: string | null;
+  draft: GlossaryDraft;
+}
 
 const EMPTY: GlossaryDraft = { term: '', aliases: [], definition: '', postSlug: '' };
+
+/**
+ * firestore.rules 의 validGlossaryTerm 과 **같은 값**이다.
+ * 규칙이 최종 방어선이고 여기는 사람에게 이유를 보여주는 자리 — 값이 갈리면
+ * 화면은 통과시키는데 저장이 막히는 상태가 된다. 규칙을 고치면 여기도 함께 고칠 것.
+ */
+const TERM_MAX = 80;
+const DEFINITION_MAX = 600;
+const ALIAS_MAX = 10;
+const POST_SLUG_MAX = 200;
 
 /**
  * 용어 사전 관리.
@@ -122,6 +135,24 @@ export default function AdminGlossaryPage() {
       ),
     ];
 
+    // firestore.rules 의 validGlossaryTerm 과 같은 상한을 화면이 먼저 잡는다.
+    // 여기서 안 막으면 규칙에 걸려 `Missing or insufficient permissions.` 원문만 뜨고,
+    // 무엇이 얼마나 초과됐는지 화면에 남지 않는다 (PostEditor 가 분류 검사에서 쓰는 규약).
+    const tooLong =
+      term.length >= TERM_MAX
+        ? `표제어는 ${TERM_MAX}자 미만이어야 합니다 (현재 ${term.length}자).`
+        : definition.length >= DEFINITION_MAX
+          ? `정의는 ${DEFINITION_MAX}자 미만이어야 합니다 (현재 ${definition.length}자).`
+          : aliases.length > ALIAS_MAX
+            ? `별칭은 최대 ${ALIAS_MAX}개입니다 (현재 ${aliases.length}개).`
+            : editing.draft.postSlug.trim().length >= POST_SLUG_MAX
+              ? `연결할 글 slug 이 너무 깁니다 (${POST_SLUG_MAX}자 미만).`
+              : null;
+    if (tooLong) {
+      setError(tooLong);
+      return;
+    }
+
     setBusy('저장 중…');
     setError(null);
     try {
@@ -205,6 +236,7 @@ export default function AdminGlossaryPage() {
               <input
                 id="g-term"
                 className={fieldClass}
+                maxLength={TERM_MAX - 1}
                 value={editing.draft.term}
                 onChange={(e) => onTermChange(e.target.value)}
               />
@@ -234,7 +266,7 @@ export default function AdminGlossaryPage() {
             <Field
               htmlFor="g-aliases"
               label="별칭"
-              hint="쉼표로 구분. 본문에서 이 표기들도 같은 용어로 인식합니다 (예: RSC, React Server Component)"
+              hint={`쉼표로 구분, 최대 ${ALIAS_MAX}개. 본문에서 이 표기들도 같은 용어로 인식합니다 (예: RSC, React Server Component)`}
             >
               <input
                 id="g-aliases"
@@ -244,10 +276,15 @@ export default function AdminGlossaryPage() {
               />
             </Field>
 
-            <Field htmlFor="g-definition" label="정의">
+            <Field
+              htmlFor="g-definition"
+              label="정의"
+              hint={`${editing.draft.definition.length} / ${DEFINITION_MAX - 1}자`}
+            >
               <textarea
                 id="g-definition"
                 rows={3}
+                maxLength={DEFINITION_MAX - 1}
                 className={fieldClass}
                 value={editing.draft.definition}
                 onChange={(e) => patch({ definition: e.target.value })}
@@ -262,6 +299,7 @@ export default function AdminGlossaryPage() {
               <input
                 id="g-post"
                 className={`${fieldClass} font-mono`}
+                maxLength={POST_SLUG_MAX - 1}
                 value={editing.draft.postSlug}
                 onChange={(e) => patch({ postSlug: e.target.value })}
               />

@@ -185,7 +185,13 @@ export function PostEditor({ existing }: { existing?: Post }) {
 
   function validate(status: PostStatus): string | null {
     if (!title.trim()) return '제목을 입력하세요.';
-    if (!slug.trim()) return 'slug 를 입력하세요.';
+    if (!slug.trim()) {
+      // 제목은 있는데 slug 이 비었다면 로마자로 옮길 글자가 없었던 것이다
+      // (이모지·한자·기호만인 제목). 그냥 "입력하세요"만 내면 원인이 안 보인다.
+      return title.trim()
+        ? '제목에서 slug 을 만들지 못했습니다 — 로마자로 옮길 글자가 없습니다. 직접 입력하세요.'
+        : 'slug 를 입력하세요.';
+    }
     if (!category) return '카테고리를 고르세요.';
     if (!subcategory) return '소분류를 고르세요.';
     // 목록에 없는 카테고리를 가리키는 기존 글. 라디오는 아무것도 선택되지 않은 것처럼

@@ -37,6 +37,26 @@ function escapeHtml(s: string): string {
     .replace(/"/g, '&quot;');
 }
 
+/**
+ * 본문 텍스트 전용 이스케이프 — **이미 엔티티인 `&` 는 건드리지 않는다.**
+ *
+ * `escapeHtml` 은 `&` 를 무조건 `&amp;` 로 바꾼다. 코드 블록과 href 에는 그게 맞지만
+ * 본문에 쓰면 사람이 쓴 `&nbsp;` · `&copy;` 가 `&amp;nbsp;` 가 되어 **글자 그대로 노출**된다.
+ * marked 의 기본 text 렌더러는 이 예외를 갖고 있었는데, 용어 링크를 걸려고 렌더러를
+ * 갈아끼우면서 함께 사라졌다 — 엔티티를 쓴 기존 글이 조용히 깨진다.
+ */
+const TEXT_ESCAPE = /[<>"']|&(?!(#\d{1,7}|#[Xx][a-fA-F0-9]{1,6}|\w+);)/g;
+const TEXT_ESCAPE_MAP: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#39;',
+};
+function escapeText(s: string): string {
+  return s.replace(TEXT_ESCAPE, (c) => TEXT_ESCAPE_MAP[c] ?? c);
+}
+
 export interface TocEntry {
   id: string;
   text: string;
@@ -50,8 +70,10 @@ export interface RenderedMarkdown {
 }
 
 /**
- * @param glossary 본문에서 자동 링크할 용어 표기. 비우면 링크를 걸지 않는다 —
- *   기본값을 빈 배열로 둬서 사전을 읽지 않는 호출부(OG 이미지 등)가 그대로 쓴다.
+ * @param glossary 본문에서 자동 링크할 용어 표기. 비우면 링크를 걸지 않는다.
+ *   지금 호출부는 글 상세 한 곳뿐이고 거기서는 사전을 넘긴다 — 기본값은 나중에 본문을
+ *   렌더하는 곳(전문 RSS 등)이 생겼을 때 "링크 없이"를 명시적으로 고를 수 있게 남겨 둔다.
+ *   그런 호출부가 생기면 상대 경로 `/glossary#...` 가 피드 리더에서 깨지므로 절대 URL 이 필요하다.
  */
 export async function renderMarkdown(
   markdown: string,
@@ -94,13 +116,16 @@ export async function renderMarkdown(
   let suppressGlossary = 0;
 
   function withGlossary(text: string): string {
-    if (suppressGlossary > 0 || !glossaryIndex.pattern) return escapeHtml(text);
+    if (suppressGlossary > 0 || !glossaryIndex.pattern) return escapeText(text);
     return splitByGlossary(text, glossaryIndex, linkedTerms)
-      .map((seg) =>
-        seg.slug
-          ? `<a class="term" href="/glossary#${seg.slug}">${escapeHtml(seg.text)}</a>`
-          : escapeHtml(seg.text),
-      )
+      .map((seg) => {
+        if (!seg.slug) return escapeText(seg.text);
+        // slug 은 Firestore 문서 ID 원문이다. 관리 화면은 toAsciiSlug 로 거르지만
+        // 콘솔·스크립트로 만든 문서는 거치지 않고, 문서 ID 는 " 를 허용한다.
+        // 속성값을 조립하는 자리이므로 여기서 막는다.
+        const href = `/glossary#${encodeURIComponent(seg.slug)}`;
+        return `<a class="term" href="${escapeHtml(href)}">${escapeText(seg.text)}</a>`;
+      })
       .join('');
   }
 

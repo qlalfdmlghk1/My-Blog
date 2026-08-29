@@ -56,17 +56,28 @@ export interface GlossaryGroup {
 
 /**
  * 사전 페이지가 그릴 묶음 목록.
- * 이미 정렬된 배열을 훑으며 라벨이 바뀔 때마다 새 묶음을 연다 —
- * 라벨로 다시 정렬하지 않는다. `ㄱ` 과 `A` 의 선후는 `sortGlossary` 가
- * 이미 정한 것이고, 여기서 또 정하면 두 규칙이 어긋날 수 있다.
+ *
+ * 라벨로 다시 정렬하지 않는다 — `ㄱ` 과 `A` 의 선후는 `sortGlossary` 가 이미 정한
+ * 것이고, 여기서 또 정하면 두 규칙이 어긋날 수 있다. 등장 순서는 그대로 따른다.
+ *
+ * 다만 **같은 라벨을 두 번 열지 않는다.** 인접한 것만 합치면 정렬상 떨어져 있는 같은
+ * 라벨이 묶음을 여러 개 만든다 — `#`(숫자·기호)가 특히 그렇다. `localeCompare(_, 'ko')`
+ * 는 한자·가나를 한글·라틴 사이사이에 흩어놓기 때문이다. 그러면 페이지가 라벨을 React
+ * key 와 DOM id 로 쓰는데 둘 다 중복되고, 자모 바로가기는 언제나 첫 묶음으로만 뛴다.
  */
 export function groupGlossary(terms: GlossaryTerm[]): GlossaryGroup[] {
   const groups: GlossaryGroup[] = [];
+  const byLabel = new Map<string, GlossaryGroup>();
   for (const term of terms) {
     const label = glossaryGroupLabel(term);
-    const last = groups[groups.length - 1];
-    if (last && last.label === label) last.terms.push(term);
-    else groups.push({ label, terms: [term] });
+    const found = byLabel.get(label);
+    if (found) {
+      found.terms.push(term);
+      continue;
+    }
+    const group: GlossaryGroup = { label, terms: [term] };
+    byLabel.set(label, group);
+    groups.push(group);
   }
   return groups;
 }
@@ -164,7 +175,8 @@ export function splitByGlossary(
 
   const segments: GlossarySegment[] = [];
   let cursor = 0;
-  // 정규식이 모듈 스코프에 캐시되므로 lastIndex 를 매번 초기화한다
+  // 같은 인덱스를 한 렌더 안의 text 토큰마다 재사용하므로 lastIndex 를 매번 초기화한다
+  // (모듈 스코프 캐시는 없다 — buildGlossaryIndex 는 renderMarkdown 호출마다 돈다)
   index.pattern.lastIndex = 0;
 
   for (let m = index.pattern.exec(text); m; m = index.pattern.exec(text)) {

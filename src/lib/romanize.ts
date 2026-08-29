@@ -10,6 +10,11 @@
  * 사람 이름·행정구역 예외(붙임표, 고유명사 대문자)는 다루지 않는다.
  * 목적이 "읽히는 ASCII 주소"라 근사치로 충분하고, 최종 slug 은 어차피 관리자가
  * 직접 고칠 수 있다 (PostEditor 의 slug 입력란).
+ *
+ * 로마자 변환 말고 `hangulChoseong()` 도 여기 있다. 소비자는 용어 사전의 ㄱㄴㄷ 묶음이라
+ * 관심사가 달라 보이지만, 두 함수가 공유하는 것은 "로마자화"가 아니라 **음절 분해**
+ * (`decompose`)라는 한글 원시 연산이고 초성 인덱스 19개도 같은 순서를 쓴다.
+ * 파일을 쪼개면 그 분해가 복제되고 두 인덱스가 어긋날 여지가 생긴다.
  */
 
 const BASE = 0xac00;
@@ -75,6 +80,7 @@ const ASSIMILATION: Record<string, readonly [string, string]> = {
   't:m': ['n', 'm'], // 갓머리 → ganmeori
   // ㄹ 받침
   'l:n': ['l', 'l'], // 별내 → byeollae
+  'l:r': ['l', 'l'], // 블로그 → beullogeu (없으면 대표음 l + 초성 r 이 그대로 이어져 lr)
   // ㅁ 받침
   'm:r': ['m', 'n'], // 담력 → damnyeok
   // ㅂ 받침

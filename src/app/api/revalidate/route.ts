@@ -60,8 +60,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   const tags = strings(body.tags);
   const scope = typeof body.scope === 'string' ? body.scope : '';
 
-  // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다
-  const paths = ['/', '/rss.xml', '/sitemap.xml'];
+  // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다.
+  // 사전도 같다 — 항목마다 '그 용어가 나오는 글' 목록을 함께 그리므로, 글이 하나
+  // 발행되면 그 글이 쓴 용어들의 관련글이 곧바로 낡는다. 어느 용어인지는 본문을
+  // 훑어야만 알 수 있고, 정적 페이지 하나를 무효화하는 비용이 그 탐색보다 싸다.
+  const paths = ['/', '/rss.xml', '/sitemap.xml', '/dictionary'];
   // slug·태그에 한글을 허용하므로 실제 요청 경로는 퍼센트 인코딩된 형태다.
   // 어느 표기가 캐시 키인지 실측하지 않았으므로 두 표기를 모두 무효화한다 —
   // 존재하지 않는 경로의 revalidatePath 는 무동작이라 넣어도 손해가 없고,
@@ -100,8 +103,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 것이다. 아무도 안 보는 글은 다시 만들어지지 않으므로 실비용이 트래픽에 비례한다.
   // 글 수 × 용어 수가 대략 8,000 을 넘으면 이 판단이 뒤집힌다 — 그때는 이미 읽어둔
   // 본문을 스캔해 매칭된 글만 무효화한다(추가 읽기는 그때도 0회다).
-  if (scope === 'glossary') {
-    pushPath('/glossary');
+  if (scope === 'dictionary') {
+    // '/dictionary' 는 위 기본 목록에 이미 있다 — 여기서는 글들만 더한다
     for (const post of posts) pushPath(`/posts/${post.slug}`);
   }
 

@@ -30,6 +30,59 @@ export const btnPrimary = `${btnBase} border border-ink bg-ink text-bg hover:opa
 export const btnSecondary = `${btnBase} border border-line hover:bg-surface`;
 export const btnQuiet = `${btnBase} border border-transparent text-ink-dim hover:bg-surface hover:text-ink`;
 
+/**
+ * 드롭다운.
+ *
+ * `fieldClass` 만 얹으면 **브라우저 기본 모양이 남는다** — 테두리·모서리·화살표를
+ * 브라우저가 자기 방식으로 그려서, 바로 옆의 input 과 높이도 테두리도 어긋난다.
+ * `appearance-none` 으로 그걸 걷어내고 화살표를 직접 그린다.
+ *
+ * 펼쳤을 때의 목록은 OS 가 그리므로 손대지 않는다. `globals.css` 가 `color-scheme` 을
+ * 라이트/다크로 선언해 두어 목록도 테마를 따라온다 — `option` 에 색을 억지로 먹이면
+ * 브라우저마다 다르게 깨지고, 그 색은 테마 전환을 따라오지도 않는다.
+ */
+export function Select({
+  id,
+  value,
+  onChange,
+  disabled,
+  children,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <select
+        id={id}
+        // pr-9 는 화살표 자리 — 없으면 긴 항목 이름이 화살표 밑으로 들어간다
+        className={`${fieldClass} cursor-pointer appearance-none pr-9`}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+      >
+        {children}
+      </select>
+      <svg
+        aria-hidden
+        viewBox="0 0 12 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        // 클릭이 화살표에 막히지 않게 — 화살표를 눌러도 드롭다운이 열려야 한다
+        className="pointer-events-none absolute right-3 top-1/2 size-3 -translate-y-1/2 text-ink-dim"
+      >
+        <path d="M2.5 4.5 6 8l3.5-3.5" />
+      </svg>
+    </div>
+  );
+}
+
 /** 라벨 · 도움말 · 우측 보조 표시(글자 수 등)를 한 덩어리로 묶는다 */
 export function Field({
   htmlFor,

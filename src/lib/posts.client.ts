@@ -181,7 +181,12 @@ function uploadErrorMessage(error: unknown): string {
  * 쓰기는 클라이언트에서 일어나므로 서버가 호출자를 신뢰할 수 없다 →
  * Firebase ID 토큰을 보내고 서버가 verifyIdToken + UID 대조로 검증한다.
  */
-export async function revalidatePost(slug: string, tags: string[]): Promise<void> {
+export async function revalidatePost(
+  slug: string,
+  tags: string[],
+  /** 글 경로만으로는 닿지 않는 범위를 서버에 알린다 (`'glossary'` → 발행된 글 전체) */
+  scope?: 'glossary',
+): Promise<void> {
   const user = auth().currentUser;
   if (!user) throw new Error('로그인이 필요합니다.');
   const res = await fetch('/api/revalidate', {
@@ -190,7 +195,7 @@ export async function revalidatePost(slug: string, tags: string[]): Promise<void
       'Content-Type': 'application/json',
       Authorization: `Bearer ${await user.getIdToken()}`,
     },
-    body: JSON.stringify({ slug, tags }),
+    body: JSON.stringify({ slug, tags, ...(scope ? { scope } : {}) }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -205,4 +210,16 @@ export async function revalidatePost(slug: string, tags: string[]): Promise<void
  */
 export async function revalidateTaxonomy(): Promise<void> {
   return revalidatePost('', []);
+}
+
+/**
+ * 용어 사전을 고쳤을 때 — **발행된 글이 전부 다시 만들어진다.**
+ *
+ * 용어 링크는 저장된 본문이 아니라 렌더 시점에 붙는다(`lib/markdown.ts`).
+ * 그래서 용어 하나를 추가하면 그 낱말이 들어간 모든 글의 HTML 이 낡는데,
+ * 어느 글에 들어 있는지는 본문을 전부 훑어야만 알 수 있다. 글 수가 수십 편
+ * 규모인 개인 블로그라 전량 재생성이 그 탐색보다 싸고 확실하다.
+ */
+export async function revalidateGlossary(): Promise<void> {
+  return revalidatePost('', [], 'glossary');
 }

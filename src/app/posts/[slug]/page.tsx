@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import type { CSSProperties } from 'react';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { hasToc, PostToc } from '@/components/PostToc';
 import { TagChip } from '@/components/TagChip';
 import { getCategoryBySlug } from '@/lib/categories.server';
+import { getGlossaryAnchors } from '@/lib/glossary.server';
 import { renderMarkdown } from '@/lib/markdown';
 import { getPostBySlug, getPublishedSlugs } from '@/lib/posts';
 import { decodeSlugParam } from '@/lib/slug';
@@ -60,10 +62,14 @@ export default async function PostPage({ params }: Params) {
 
   // 배지가 직접 조회하지 않도록 여기서 한 번 읽어 넘긴다.
   // 목록에 없는 slug 면 null 이 되고 배지가 무채색으로 떨어진다.
-  const [category, { html, toc }] = await Promise.all([
+  //
+  // 용어 표기는 본문을 그리기 **전에** 있어야 해서 렌더와 나란히 두지 못한다.
+  // 사전이 비었거나 조회에 실패하면 빈 배열이고, 그 글은 용어 링크 없이 그대로 뜬다.
+  const [category, glossary] = await Promise.all([
     getCategoryBySlug(post.category),
-    renderMarkdown(post.content),
+    getGlossaryAnchors(),
   ]);
+  const { html, toc } = await renderMarkdown(post.content, glossary);
   // 목차를 그릴지 여기서 정한다 — 컬럼 구성과 목차 렌더가 같은 값을 봐야
   // 목차 없는 글에서 빈 컬럼이 남아 본문이 왼쪽으로 밀리는 일이 없다.
   const withToc = hasToc(toc);
@@ -105,7 +111,17 @@ export default async function PostPage({ params }: Params) {
         )}
       </header>
 
-      <article className="md mt-9" dangerouslySetInnerHTML={{ __html: html }} />
+      {/* 용어 링크의 점선 밑줄색을 이 글의 카테고리 색으로 맞춘다 (globals.css 의 .md a.term).
+          팔레트 슬롯 변수는 category-css.ts 가 라이트·다크 2벌로 이미 깔아두므로
+          여기서는 "어느 슬롯인지"만 가리키면 되고, 테마 전환은 그 변수가 알아서 따라온다.
+          카테고리를 못 찾으면 변수를 얹지 않는다 — CSS 가 무채색으로 떨어뜨린다. */}
+      <article
+        className="md mt-9"
+        style={
+          category ? ({ '--term-line': `var(--pal-${category.palette}-fg)` } as CSSProperties) : undefined
+        }
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
 
       <nav className="mt-16 border-t border-line pt-6 text-sm">
         <Link href="/" className="font-semibold hover:underline">

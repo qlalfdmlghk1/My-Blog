@@ -27,6 +27,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly' as const,
       priority: 0.8,
     })),
+    {
+      url: absoluteUrl('/glossary'),
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    },
     // 글이 없는 카테고리도 싣는다 — 사이트 구조 자체를 알린다
     ...categories.map((c) => ({
       url: absoluteUrl(`/categories/${c.slug}`),

@@ -53,6 +53,19 @@ service cloud.firestore {
         && d.order is number;
   }
 
+  // 용어 사전. 정의문은 길이만 제한한다 — 내용 검사는 규칙이 할 수 있는 일이 아니다.
+  // aliases 는 본문 자동 링크가 훑는 목록이라 개수를 묶어둔다. 열어두면 표기 수천 개가
+  // 든 문서 하나로 글 렌더링마다 거대한 정규식이 만들어진다.
+  function validGlossaryTerm(d) {
+    return d.keys().hasAll(['term', 'aliases', 'definition', 'postSlug'])
+        && d.term is string && d.term.size() > 0 && d.term.size() < 80
+        && d.aliases is list && d.aliases.size() <= 10
+        && d.definition is string && d.definition.size() > 0 && d.definition.size() < 600
+        // 빈 문자열 = 연결된 글 없음. 여기서 글의 존재까지 확인하지는 않는다 —
+        // 초안 상태의 글을 미리 이어둘 수 있어야 하고, 끊긴 링크는 404 로 끝난다.
+        && d.postSlug is string && d.postSlug.size() < 200;
+  }
+
   function validSubcategory(d) {
     return d.keys().hasAll(['name', 'order'])
         && d.name is string && d.name.size() > 0 && d.name.size() < 60
@@ -83,6 +96,15 @@ service cloud.firestore {
       // 그 카테고리를 참조하는 글이 없음을 확인해야 하는데, 보안 규칙은 집계
       // 쿼리를 할 수 없다. 쓰기 권한 자체가 관리자로 한정돼 있어 이 경계는
       // "권한"이 아니라 "실수 방지"의 문제이고, 실수 방지는 화면이 맡는다.
+      allow delete: if isAdmin();
+    }
+
+    match /glossary/{termSlug} {
+      // 용어 정의는 공개 정보다 — 사전 페이지와 본문 링크가 로그인 없이 읽는다.
+      allow read: if true;
+      allow create, update: if isAdmin() && validGlossaryTerm(request.resource.data);
+      // 지운 용어를 가리키던 본문 링크는 사전 페이지의 빈 앵커로 떨어질 뿐이라
+      // 카테고리처럼 "글이 남아 있는지" 확인할 필요가 없다.
       allow delete: if isAdmin();
     }
 

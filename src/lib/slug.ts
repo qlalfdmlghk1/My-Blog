@@ -1,6 +1,11 @@
+import { romanizeKorean } from '@/lib/romanize';
+
 /**
- * 한글 제목을 그대로 slug 로 쓰면 URL 인코딩되어 링크가 읽히지 않는다.
- * 한글은 유지하되(가독성) 공백·특수문자만 정리하고, 최종 slug 는 관리자가 직접 고칠 수 있게 한다.
+ * 공백·특수문자만 정리한다. **한글은 그대로 남긴다.**
+ *
+ * 본문 제목 앵커(`markdown.ts`)가 이 함수를 쓴다. 앵커까지 로마자로 바꾸면
+ * 이미 공유된 `#설치-방법` 링크가 한꺼번에 죽는다. 주소가 되는 slug 은
+ * 아래 `toAsciiSlug` 를 쓴다.
  */
 export function slugify(input: string): string {
   return input
@@ -8,6 +13,30 @@ export function slugify(input: string): string {
     .toLowerCase()
     .replace(/[\s_]+/g, '-')
     .replace(/[^\p{Letter}\p{Number}-]/gu, '')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
+/**
+ * 발행 주소로 쓸 slug — **한글은 로마자로 바꿔 ASCII 만 남긴다.**
+ *
+ * 한글 slug 은 브라우저 주소창에서만 한글로 보이고, 복사해 붙이는 순간
+ * `%EC%B2%AB-...` 가 된다. 공유 링크·검색 결과·RSS 어디서도 읽히지 않고
+ * 길이도 3배가 된다. 표기 방식은 `lib/romanize.ts` 참고.
+ *
+ * 번역이 아니라 발음 표기다(`리팩토링` → `ripaektoring`). 진짜 영어 낱말을
+ * 원하면 관리자가 slug 입력란에서 직접 고친다 — 자동 생성은 어디까지나 초안이고,
+ * 외부 번역 API 를 물리면 키·비용·실패 폴백이 생기는 데다 같은 제목이 호출마다
+ * 다른 주소가 될 수 있다.
+ *
+ * 로마자로 옮길 것이 하나도 남지 않으면(기호·이모지만 있는 제목) 빈 문자열이다.
+ * 그 경우 저장 검사(`slug 를 입력하세요`)가 막고 관리자가 직접 채운다.
+ */
+export function toAsciiSlug(input: string): string {
+  return slugify(romanizeKorean(input))
+    // 로마자로 옮겨지지 않은 비-ASCII(한자·가나·이모지)는 여기서 떨군다 —
+    // slugify 는 \p{Letter} 를 통과시키므로 그것만으로는 ASCII 가 보장되지 않는다.
+    .replace(/[^\x20-\x7E]/g, '')
     .replace(/-{2,}/g, '-')
     .replace(/^-|-$/g, '');
 }

@@ -47,6 +47,12 @@ export function SiteHeader() {
           >
             글
           </Link>
+          <Link
+            href="/glossary"
+            className="rounded-md px-2.5 py-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+          >
+            용어
+          </Link>
           <span aria-hidden className="mx-1.5 h-4 w-px bg-line" />
           <ThemeToggle />
         </nav>

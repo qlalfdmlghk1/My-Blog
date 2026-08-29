@@ -27,7 +27,7 @@ import {
   updatePost,
   uploadImage,
 } from '@/lib/posts.client';
-import { autoExcerpt, slugify } from '@/lib/slug';
+import { autoExcerpt, toAsciiSlug } from '@/lib/slug';
 import type { Category, Subcategory } from '@/types/category';
 import type { Post, PostDraft, PostStatus } from '@/types/post';
 
@@ -138,8 +138,8 @@ export function PostEditor({ existing }: { existing?: Post }) {
 
   function onTitleChange(next: string) {
     setTitle(next);
-    // slug 를 손대지 않았다면 제목에서 따라간다
-    if (!slugEdited) setSlug(slugify(next));
+    // slug 를 손대지 않았다면 제목에서 따라간다 (한글 제목은 로마자로)
+    if (!slugEdited) setSlug(toAsciiSlug(next));
   }
 
   /** 붙여넣기로 이미지가 들어오면 업로드하고 커서 위치에 마크다운을 삽입한다 */
@@ -347,7 +347,11 @@ export function PostEditor({ existing }: { existing?: Post }) {
               <Field
                 htmlFor="f-slug"
                 label="slug"
-                hint={`발행 주소 — /posts/${slug || '…'}`}
+                hint={
+                  slugEdited
+                    ? `발행 주소 — /posts/${slug || '…'}`
+                    : `발행 주소 — /posts/${slug || '…'} · 한글 제목은 로마자 발음으로 옮깁니다. 영어 낱말로 쓰려면 직접 고치세요.`
+                }
                 aside={
                   slugEdited ? (
                     <button
@@ -355,7 +359,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
                       className="text-[11px] font-medium text-ink-dim hover:text-ink"
                       onClick={() => {
                         setSlugEdited(false);
-                        setSlug(slugify(title));
+                        setSlug(toAsciiSlug(title));
                       }}
                     >
                       제목에서 다시 만들기

@@ -301,7 +301,9 @@ export default function AdminDictionaryPage() {
     // 한글 이름은 로마자로 3~4배 늘어난다. 이름이 규칙(60자)을 통과해도 slug 이 100자를
     // 넘을 수 있고, 그러면 이 분류를 지정한 **용어 저장**이 규칙의 category 상한에 걸려
     // permissions 원문 에러만 뜬다 — 원인이 분류 쪽에 있는데 용어 화면에서 막힌다.
-    if (slug.length >= DICTIONARY_LIMITS.category) {
+    // 수정 모드의 slug 은 이미 고정돼 있고 입력란도 잠겨 있다 — 거기서 막으면
+    // 이름·색조차 못 고치고 삭제 외에 빠져나갈 길이 없다. 새로 만들 때만 본다.
+    if (!editingCategory.slug && slug.length >= DICTIONARY_LIMITS.category) {
       setError(
         `분류 slug 은 ${DICTIONARY_LIMITS.category}자 미만이어야 합니다 (현재 ${slug.length}자). 짧게 직접 입력하세요.`,
       );

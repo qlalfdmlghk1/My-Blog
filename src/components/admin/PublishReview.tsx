@@ -194,7 +194,9 @@ export function PublishReview({ post }: { post: Post }) {
     // 문구가 실제 상태와 어긋나지 않게 세 경우를 갈라 쓴다. "썼는가"만 보고 갈라서는
     // **전부 성공 + 재검증만 실패**한 경우에 "N개까지 등록한 뒤 멈췄습니다"가 나가,
     // 남은 후보를 잃은 것처럼 읽힌다 — 등록은 하나도 빠지지 않았는데.
-    const partial = written.length < prepared.length;
+    // "한 건도 못 씀"을 부분 실패와 같이 취급하면 `0/3개까지 등록한 뒤 멈췄습니다` 가
+    // 나간다 — 등록이 시작조차 안 됐는데 뭔가 들어간 것처럼 읽힌다.
+    const partial = written.length > 0 && written.length < prepared.length;
     if (failure && partial) {
       setError(
         `${written.length}/${prepared.length}개까지 등록한 뒤 멈췄습니다 — ${failure}` +

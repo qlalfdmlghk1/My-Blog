@@ -13,12 +13,11 @@ import {
 import { auth, db } from '@/lib/firebase/client';
 import type {
   DictionaryCategory,
-  ExtractResponse,
   DictionaryCategoryDraft,
   DictionaryDraft,
   DictionaryTerm,
+  ExtractResponse,
 } from '@/types/dictionary';
-
 
 /** 관리 화면의 용어 목록. 정렬은 여기서 한다 (쿼리에서 문서가 빠지지 않도록) */
 export async function listDictionary(): Promise<DictionaryTerm[]> {

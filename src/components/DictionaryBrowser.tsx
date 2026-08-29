@@ -173,9 +173,7 @@ export function DictionaryBrowser({
                             </span>
                           )}
                           {term.aliases.length > 0 && (
-                            <span className="text-xs text-ink-dim">
-                              {term.aliases.join(' · ')}
-                            </span>
+                            <span className="text-xs text-ink-dim">{term.aliases.join(' · ')}</span>
                           )}
                         </dt>
                         <dd className="mt-1.5 text-sm leading-relaxed text-ink-dim">

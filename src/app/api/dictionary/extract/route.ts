@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
-import {
-  buildDictionaryIndex,
-  DICTIONARY_LIMITS,
-  toDictionaryAnchors,
-} from '@/lib/dictionary';
+import { buildDictionaryIndex, DICTIONARY_LIMITS, toDictionaryAnchors } from '@/lib/dictionary';
 import { getDictionary } from '@/lib/dictionary.server';
 import { generateJson } from '@/lib/gemini.server';
 import { sanitizeAsciiSlug } from '@/lib/slug';

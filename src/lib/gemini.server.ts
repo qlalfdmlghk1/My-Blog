@@ -97,7 +97,21 @@ export async function generateJson<T>(
     };
   }
 
-  const payload = (await res.json().catch(() => null)) as GeminiResponse | null;
+  // 본문을 받는 도중에도 타임아웃이 날 수 있다. 여기서 안 가르면 그 실패가
+  // `catch(() => null)` 에 먹혀 "응답을 해석하지 못했습니다"로 나가, 위에서 공들여
+  // 만든 504 문구가 이 경로에서만 사라진다.
+  let payload: GeminiResponse | null = null;
+  try {
+    payload = (await res.json()) as GeminiResponse;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      return {
+        ok: false,
+        status: 504,
+        error: '응답이 너무 오래 걸려 중단했습니다. 본문을 줄이고 다시 시도하세요.',
+      };
+    }
+  }
 
   if (!res.ok) {
     // 한도 초과는 관리자가 스스로 할 수 있는 일(기다리기)이 있어 따로 안내한다
@@ -112,8 +126,7 @@ export async function generateJson<T>(
     return { ok: false, status: 502, error: `Gemini 호출이 실패했습니다 — ${detail}` };
   }
 
-  const text =
-    payload?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+  const text = payload?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
   try {
     return { ok: true, data: JSON.parse(text) as T };
   } catch {

@@ -44,7 +44,10 @@ const PROMPT = [
 
 export async function POST(request: Request): Promise<NextResponse> {
   if (!hasAdminCredentials()) {
-    return NextResponse.json({ error: 'Firebase Admin 자격증명이 서버에 없습니다.' }, { status: 503 });
+    return NextResponse.json(
+      { error: 'Firebase Admin 자격증명이 서버에 없습니다.' },
+      { status: 503 },
+    );
   }
 
   const header = request.headers.get('authorization') ?? '';

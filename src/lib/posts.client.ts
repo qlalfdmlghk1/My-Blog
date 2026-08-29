@@ -184,8 +184,8 @@ function uploadErrorMessage(error: unknown): string {
 export async function revalidatePost(
   slug: string,
   tags: string[],
-  /** 글 경로만으로는 닿지 않는 범위를 서버에 알린다 (`'glossary'` → 발행된 글 전체) */
-  scope?: 'glossary',
+  /** 글 경로만으로는 닿지 않는 범위를 서버에 알린다 (`'dictionary'` → 발행된 글 전체) */
+  scope?: 'dictionary',
 ): Promise<void> {
   const user = auth().currentUser;
   if (!user) throw new Error('로그인이 필요합니다.');
@@ -220,6 +220,33 @@ export async function revalidateTaxonomy(): Promise<void> {
  * 어느 글에 들어 있는지는 본문을 전부 훑어야만 알 수 있다. 글 수가 수십 편
  * 규모인 개인 블로그라 전량 재생성이 그 탐색보다 싸고 확실하다.
  */
-export async function revalidateGlossary(): Promise<void> {
-  return revalidatePost('', [], 'glossary');
+export async function revalidateDictionary(): Promise<void> {
+  return revalidatePost('', [], 'dictionary');
+}
+
+/**
+ * 제목 → 영어 slug 제안. **버튼을 눌렀을 때만** 부른다.
+ *
+ * 저장·발행 경로에는 넣지 않는다 — AI 호출이 그 길에 끼면 글을 내보내는 일이
+ * 외부 서비스의 응답 시간과 한도에 묶인다. 제안이 실패해도 입력란의 기존 slug 이
+ * 그대로 남으므로 잃는 것이 없다.
+ */
+export async function suggestPostSlug(title: string, content: string): Promise<string> {
+  const user = auth().currentUser;
+  if (!user) throw new Error('로그인이 필요합니다.');
+
+  const res = await fetch('/api/slug/suggest', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${await user.getIdToken()}`,
+    },
+    body: JSON.stringify({ title, content }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? `slug 제안에 실패했습니다 (${res.status})`);
+  }
+  const { slug } = (await res.json()) as { slug: string };
+  return slug;
 }

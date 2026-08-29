@@ -3,9 +3,9 @@ import 'server-only';
 import { Marked } from 'marked';
 import { createHighlighter, type Highlighter } from 'shiki';
 
-import { buildGlossaryIndex, splitByGlossary } from '@/lib/glossary';
+import { buildDictionaryIndex, splitByDictionary } from '@/lib/dictionary';
 import { slugify } from '@/lib/slug';
-import type { GlossaryAnchor } from '@/types/glossary';
+import type { DictionaryAnchor } from '@/types/dictionary';
 
 /**
  * 마크다운 → HTML 변환은 서버에서만 수행한다.
@@ -67,19 +67,28 @@ export interface RenderedMarkdown {
   html: string;
   /** h2·h3 만 담는다. h4 까지 넣으면 목차가 본문만큼 길어져 길잡이 역할을 잃는다 */
   toc: TocEntry[];
+  /**
+   * 본문에 실제로 링크가 걸린 용어의 slug — 등장 순서.
+   *
+   * 글 하단의 '관련 용어' 목록이 이 값을 쓴다. 글 문서에 따로 저장하지 않는 이유:
+   * 링크 자체가 저장된 본문이 아니라 **렌더 시점에** 붙으므로(자동 링크), 저장해 두면
+   * 사전이 바뀔 때마다 본문의 링크와 저장된 목록이 갈라진다. 같은 렌더에서 나온 값을
+   * 그대로 쓰면 둘이 어긋날 수 없다.
+   */
+  terms: string[];
 }
 
 /**
- * @param glossary 본문에서 자동 링크할 용어 표기. 비우면 링크를 걸지 않는다.
+ * @param dictionary 본문에서 자동 링크할 용어 표기. 비우면 링크를 걸지 않는다.
  *   지금 호출부는 글 상세 한 곳뿐이고 거기서는 사전을 넘긴다 — 기본값은 나중에 본문을
  *   렌더하는 곳(전문 RSS 등)이 생겼을 때 "링크 없이"를 명시적으로 고를 수 있게 남겨 둔다.
- *   그런 호출부가 생기면 상대 경로 `/glossary#...` 가 피드 리더에서 깨지므로 절대 URL 이 필요하다.
+ *   그런 호출부가 생기면 상대 경로 `/dictionary#...` 가 피드 리더에서 깨지므로 절대 URL 이 필요하다.
  */
 export async function renderMarkdown(
   markdown: string,
-  glossary: readonly GlossaryAnchor[] = [],
+  dictionary: readonly DictionaryAnchor[] = [],
 ): Promise<RenderedMarkdown> {
-  if (!markdown.trim()) return { html: '', toc: [] };
+  if (!markdown.trim()) return { html: '', toc: [], terms: [] };
   const hl = await highlighter();
   const loaded = new Set(hl.getLoadedLanguages());
   /** walkTokens 에서 미리 하이라이트한 결과를 renderer 가 꺼내 쓴다 */
@@ -102,7 +111,7 @@ export async function renderMarkdown(
     return id;
   }
 
-  const glossaryIndex = buildGlossaryIndex(glossary);
+  const dictionaryIndex = buildDictionaryIndex(dictionary);
   /** 한 글에서 같은 용어에 링크를 두 번 걸지 않는다 — 첫 등장만 */
   const linkedTerms = new Set<string>();
   /**
@@ -113,17 +122,17 @@ export async function renderMarkdown(
    * 본문 제목의 모양이 갈린다. 파싱은 렌더러 안에서 동기로 끝나므로
    * 이 플래그만으로 구간이 정확히 잡힌다.
    */
-  let suppressGlossary = 0;
+  let suppressDictionary = 0;
 
-  function withGlossary(text: string): string {
-    if (suppressGlossary > 0 || !glossaryIndex.pattern) return escapeText(text);
-    return splitByGlossary(text, glossaryIndex, linkedTerms)
+  function withDictionary(text: string): string {
+    if (suppressDictionary > 0 || !dictionaryIndex.pattern) return escapeText(text);
+    return splitByDictionary(text, dictionaryIndex, linkedTerms)
       .map((seg) => {
         if (!seg.slug) return escapeText(seg.text);
         // slug 은 Firestore 문서 ID 원문이다. 관리 화면은 toAsciiSlug 로 거르지만
         // 콘솔·스크립트로 만든 문서는 거치지 않고, 문서 ID 는 " 를 허용한다.
         // 속성값을 조립하는 자리이므로 여기서 막는다.
-        const href = `/glossary#${encodeURIComponent(seg.slug)}`;
+        const href = `/dictionary#${encodeURIComponent(seg.slug)}`;
         return `<a class="term" href="${escapeHtml(href)}">${escapeText(seg.text)}</a>`;
       })
       .join('');
@@ -156,9 +165,9 @@ export async function renderMarkdown(
       },
       /** 목차가 걸 앵커를 만든다. 수집과 id 부여를 한곳에서 해야 둘이 어긋나지 않는다 */
       heading(token) {
-        suppressGlossary += 1;
+        suppressDictionary += 1;
         const text = this.parser.parseInline(token.tokens);
-        suppressGlossary -= 1;
+        suppressDictionary -= 1;
         const plain = token.text.replace(/[*_`~]/g, '').trim();
         const depth = token.depth;
         if (depth === 2 || depth === 3) {
@@ -173,9 +182,9 @@ export async function renderMarkdown(
         const href = token.href ?? '';
         const external = /^https?:\/\//.test(href);
         const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : '';
-        suppressGlossary += 1;
+        suppressDictionary += 1;
         const label = this.parser.parseInline(token.tokens);
-        suppressGlossary -= 1;
+        suppressDictionary -= 1;
         return `<a href="${escapeHtml(href)}"${attrs}>${label}</a>`;
       },
       /**
@@ -190,11 +199,12 @@ export async function renderMarkdown(
         if ('tokens' in token && token.tokens) return this.parser.parseInline(token.tokens);
         // 이미 이스케이프된 토큰(raw block 안)은 손대지 않는다
         if ('escaped' in token && token.escaped) return token.text;
-        return withGlossary(token.text);
+        return withDictionary(token.text);
       },
     },
   });
 
   const html = (await md.parse(markdown)) as string;
-  return { html, toc };
+  // Set 은 삽입 순서를 지키므로 본문에 나온 순서 그대로다
+  return { html, toc, terms: [...linkedTerms] };
 }

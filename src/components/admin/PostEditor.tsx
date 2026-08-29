@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from 'react';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
 
-import { TagChip } from '@/components/TagChip';
+import { TagChip } from "@/components/TagChip";
 import {
   Field,
   Panel,
@@ -15,21 +15,22 @@ import {
   fieldClass,
   hintClass,
   labelClass,
-} from '@/components/admin/ui';
-import { normalizeWord, taxonomyWordSet } from '@/lib/categories';
-import { listCategories, listSubcategories } from '@/lib/categories.client';
-import { renderPreview } from '@/lib/markdown-preview';
+} from "@/components/admin/ui";
+import { normalizeWord, taxonomyWordSet } from "@/lib/categories";
+import { listCategories, listSubcategories } from "@/lib/categories.client";
+import { renderPreview } from "@/lib/markdown-preview";
 import {
   createPost,
   deletePost,
   isSlugTaken,
   revalidatePost,
+  suggestPostSlug,
   updatePost,
   uploadImage,
-} from '@/lib/posts.client';
-import { autoExcerpt, toAsciiSlug } from '@/lib/slug';
-import type { Category, Subcategory } from '@/types/category';
-import type { Post, PostDraft, PostStatus } from '@/types/post';
+} from "@/lib/posts.client";
+import { autoExcerpt, toAsciiSlug } from "@/lib/slug";
+import type { Category, Subcategory } from "@/types/category";
+import type { Post, PostDraft, PostStatus } from "@/types/post";
 
 /**
  * v1 은 WYSIWYG 를 만들지 않는다 — 툴바·드래그·자동저장까지 가면
@@ -40,16 +41,16 @@ export function PostEditor({ existing }: { existing?: Post }) {
   const router = useRouter();
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
-  const [title, setTitle] = useState(existing?.title ?? '');
-  const [slug, setSlug] = useState(existing?.slug ?? '');
+  const [title, setTitle] = useState(existing?.title ?? "");
+  const [slug, setSlug] = useState(existing?.slug ?? "");
   const [slugEdited, setSlugEdited] = useState(Boolean(existing));
-  const [content, setContent] = useState(existing?.content ?? '');
-  const [excerpt, setExcerpt] = useState(existing?.excerpt ?? '');
-  const [category, setCategory] = useState<string>(existing?.category ?? '');
-  const [subcategory, setSubcategory] = useState<string>(existing?.subcategory ?? '');
+  const [content, setContent] = useState(existing?.content ?? "");
+  const [excerpt, setExcerpt] = useState(existing?.excerpt ?? "");
+  const [category, setCategory] = useState<string>(existing?.category ?? "");
+  const [subcategory, setSubcategory] = useState<string>(existing?.subcategory ?? "");
 
-  const [tagInput, setTagInput] = useState(existing?.tags.join(', ') ?? '');
-  const [coverImage, setCoverImage] = useState(existing?.coverImage ?? '');
+  const [tagInput, setTagInput] = useState(existing?.tags.join(", ") ?? "");
+  const [coverImage, setCoverImage] = useState(existing?.coverImage ?? "");
 
   const [busy, setBusy] = useState<null | string>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,21 +70,16 @@ export function PostEditor({ existing }: { existing?: Post }) {
         if (cancelled) return;
         setCategories(cats);
         setSubcategories(subs);
-        setCategory((current) => current || cats[0]?.slug || '');
+        setCategory((current) => current || cats[0]?.slug || "");
       })
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : '분류를 불러오지 못했습니다.'),
-      );
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "분류를 불러오지 못했습니다."));
     return () => {
       cancelled = true;
     };
   }, []);
 
   /** 지금 고른 카테고리에 속한 소분류만 — 소분류는 카테고리를 넘나들지 않는다 */
-  const subOptions = useMemo(
-    () => subcategories.filter((s) => s.category === category),
-    [subcategories, category],
-  );
+  const subOptions = useMemo(() => subcategories.filter((s) => s.category === category), [subcategories, category]);
 
   const previewHtml = useMemo(() => renderPreview(content), [content]);
   // 발췌문 placeholder 도 본문 전체를 정규식으로 훑으므로 미리보기와 같이 memo 한다
@@ -101,8 +97,8 @@ export function PostEditor({ existing }: { existing?: Post }) {
     () => [
       ...new Set(
         tagInput
-          .split(',')
-          .map((t) => t.trim().replace(/^#+/, '').trim())
+          .split(",")
+          .map((t) => t.trim().replace(/^#+/, "").trim())
           .filter(Boolean),
       ),
     ],
@@ -142,15 +138,37 @@ export function PostEditor({ existing }: { existing?: Post }) {
     if (!slugEdited) setSlug(toAsciiSlug(next));
   }
 
+  /**
+   * 제목을 영어 slug 으로 옮겨 받는다.
+   *
+   * 자동으로 부르지 않는다 — 제목을 한 글자 칠 때마다 모델을 부르게 되고, 그 비용과
+   * 대기가 글쓰기 흐름에 얹힌다. 받은 값은 `slugEdited` 로 잠가 제목을 더 고쳐도
+   * 로마자로 되돌아가지 않게 한다 (되돌리려면 '제목에서 다시 만들기').
+   */
+  async function suggestSlug() {
+    if (!title.trim()) {
+      setError("제목을 먼저 입력하세요.");
+      return;
+    }
+    setBusy("slug 을 지어보는 중…");
+    setError(null);
+    try {
+      setSlug(await suggestPostSlug(title, content));
+      setSlugEdited(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "slug 제안에 실패했습니다.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   /** 붙여넣기로 이미지가 들어오면 업로드하고 커서 위치에 마크다운을 삽입한다 */
   async function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
-    const file = [...e.clipboardData.items]
-      .find((i) => i.kind === 'file' && i.type.startsWith('image/'))
-      ?.getAsFile();
+    const file = [...e.clipboardData.items].find((i) => i.kind === "file" && i.type.startsWith("image/"))?.getAsFile();
     if (!file) return;
 
     e.preventDefault();
-    setBusy('이미지 업로드 중…');
+    setBusy("이미지 업로드 중…");
     setError(null);
     try {
       const url = await uploadImage(file);
@@ -164,7 +182,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
         setContent((prev) => prev + markdown);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '이미지 업로드에 실패했습니다.');
+      setError(err instanceof Error ? err.message : "이미지 업로드에 실패했습니다.");
     } finally {
       setBusy(null);
     }
@@ -172,29 +190,29 @@ export function PostEditor({ existing }: { existing?: Post }) {
 
   async function onCoverPick(file: File | undefined) {
     if (!file) return;
-    setBusy('커버 업로드 중…');
+    setBusy("커버 업로드 중…");
     setError(null);
     try {
       setCoverImage(await uploadImage(file));
     } catch (err) {
-      setError(err instanceof Error ? err.message : '커버 업로드에 실패했습니다.');
+      setError(err instanceof Error ? err.message : "커버 업로드에 실패했습니다.");
     } finally {
       setBusy(null);
     }
   }
 
   function validate(status: PostStatus): string | null {
-    if (!title.trim()) return '제목을 입력하세요.';
+    if (!title.trim()) return "제목을 입력하세요.";
     if (!slug.trim()) {
       // 원인을 제목으로 되짚는다. 위에서 빈 제목을 이미 걸러냈으므로 "제목이 있는가"로
       // 갈라서는 안 된다 — 그러면 사용자가 slug 을 직접 지운 경우에도 "옮길 글자가 없다"는
       // 사실과 반대되는 안내가 나간다. 제목에서 실제로 만들어지는지를 다시 계산해 가른다.
       return toAsciiSlug(title)
-        ? 'slug 를 입력하세요.'
-        : '제목에서 slug 을 만들지 못했습니다 — 로마자로 옮길 글자가 없습니다. 직접 입력하세요.';
+        ? "slug 를 입력하세요."
+        : "제목에서 slug 을 만들지 못했습니다 — 로마자로 옮길 글자가 없습니다. 직접 입력하세요.";
     }
-    if (!category) return '카테고리를 고르세요.';
-    if (!subcategory) return '소분류를 고르세요.';
+    if (!category) return "카테고리를 고르세요.";
+    if (!subcategory) return "소분류를 고르세요.";
     // 목록에 없는 카테고리를 가리키는 기존 글. 라디오는 아무것도 선택되지 않은 것처럼
     // 보이지만 category 값 자체는 남아 있어, 이 검사가 없으면 그대로 통과한 뒤
     // firestore.rules 의 categoryExists() 에 걸려 permissions 원문 에러만 뜬다.
@@ -206,17 +224,28 @@ export function PostEditor({ existing }: { existing?: Post }) {
     if (categories && !subOptions.some((s) => s.slug === subcategory)) {
       return `이 글은 "${category}" 에 없는 소분류 "${subcategory}" 를 가리킵니다. 아래에서 다시 고르세요.`;
     }
-    if (status === 'published' && !content.trim()) return '본문이 비어 있습니다.';
+    if (status === "published" && !content.trim()) return "본문이 비어 있습니다.";
     return null;
   }
 
-  async function save(status: PostStatus) {
-    const invalid = validate(status);
+  /**
+   * 저장 공통부 — 성공하면 문서 ID 를 돌려준다.
+   *
+   * ID 를 돌려주는 이유는 발행 확인 화면 때문이다. 새 글은 저장하기 전에 ID 가
+   * 없고, 확인 화면은 본문을 넘겨받는 대신 ID 로 다시 읽는다(그래야 새로고침에도
+   * 같은 화면이 나온다). 저장이 끝난 자리에서만 알 수 있는 값이라 여기서 돌려준다.
+   *
+   * @param validateAs 검사에 쓸 상태. 확인 화면으로 넘길 때는 임시저장으로 쓰면서도
+   *   발행 기준(본문이 비어 있지 않은가)으로 미리 걸러야 한다 — 확인 화면까지 갔다가
+   *   거기서 막히면 되돌아와야 할 이유를 늦게 알게 된다.
+   */
+  async function persist(status: PostStatus, label: string, validateAs: PostStatus = status): Promise<string | null> {
+    const invalid = validate(validateAs);
     if (invalid) {
       setError(invalid);
-      return;
+      return null;
     }
-    setBusy(status === 'published' ? '발행 중…' : '저장 중…');
+    setBusy(label);
     setError(null);
     try {
       // 검사와 저장이 같은 값을 봐야 한다 — trim 전 값으로 조회하면
@@ -226,7 +255,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
 
       if (await isSlugTaken(normalizedSlug, existing?.id)) {
         setError(`slug "${normalizedSlug}" 는 이미 사용 중입니다.`);
-        return;
+        return null;
       }
 
       const draft: PostDraft = {
@@ -241,10 +270,12 @@ export function PostEditor({ existing }: { existing?: Post }) {
         status,
       };
 
+      let id: string;
       if (existing) {
-        await updatePost(existing.id, draft, existing.status === 'published');
+        await updatePost(existing.id, draft, existing.status === "published");
+        id = existing.id;
       } else {
-        await createPost(draft);
+        id = await createPost(draft);
       }
 
       // draft 로 되돌린 경우에도 기존 정적 페이지를 걷어내야 하므로 항상 재생성한다.
@@ -252,27 +283,49 @@ export function PostEditor({ existing }: { existing?: Post }) {
       const affected = [...new Set([...tags, ...(existing?.tags ?? [])])];
       await revalidatePost(draft.slug, affected);
 
-      router.push('/admin');
-      router.refresh();
+      return id;
     } catch (err) {
-      setError(err instanceof Error ? err.message : '저장에 실패했습니다.');
+      setError(err instanceof Error ? err.message : "저장에 실패했습니다.");
+      return null;
     } finally {
       setBusy(null);
     }
   }
 
+  async function save(status: PostStatus) {
+    const id = await persist(status, status === "published" ? "발행 중…" : "저장 중…");
+    if (!id) return;
+    router.push("/admin");
+    router.refresh();
+  }
+
+  /**
+   * 발행 버튼 — 바로 내보내지 않고 **확인 화면으로 넘긴다.**
+   *
+   * 상태는 올리지 않는다. 새 글은 임시저장인 채로 저장하고, 이미 발행된 글은
+   * 발행인 채로 둔다 — 수정 중이던 발행 글이 확인 화면을 여는 동안 블로그에서
+   * 내려가면 안 되기 때문이다. 상태를 published 로 바꾸는 것은 확인 화면의
+   * 확정 버튼 하나뿐이다.
+   */
+  async function saveForReview() {
+    const status: PostStatus = existing?.status === "published" ? "published" : "draft";
+    const id = await persist(status, "저장 중…", "published");
+    if (!id) return;
+    router.push(`/admin/publish/${id}`);
+  }
+
   async function remove() {
     if (!existing) return;
     if (!window.confirm(`"${existing.title}" 를 삭제합니다. 되돌릴 수 없습니다.`)) return;
-    setBusy('삭제 중…');
+    setBusy("삭제 중…");
     setError(null);
     try {
       await deletePost(existing.id);
       await revalidatePost(existing.slug, existing.tags);
-      router.push('/admin');
+      router.push("/admin");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '삭제에 실패했습니다.');
+      setError(err instanceof Error ? err.message : "삭제에 실패했습니다.");
     } finally {
       setBusy(null);
     }
@@ -280,7 +333,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
 
   // 이미 발행된 글에 "임시저장"을 누르면 블로그에서 내려간다.
   // 동작은 같아도 결과가 정반대라 라벨을 결과대로 쓴다.
-  const draftLabel = existing?.status === 'published' ? '비공개로 내리기' : '임시저장';
+  const draftLabel = existing?.status === "published" ? "비공개로 내리기" : "임시저장";
 
   return (
     <>
@@ -290,7 +343,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
           <Link href="/admin" className="text-xs font-medium text-ink-dim hover:text-ink">
             ← 목록
           </Link>
-          <h1 className="text-base font-bold tracking-tight">{existing ? '글 수정' : '새 글'}</h1>
+          <h1 className="text-base font-bold tracking-tight">{existing ? "글 수정" : "새 글"}</h1>
           {existing && <StatusPill status={existing.status} />}
 
           <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -298,21 +351,11 @@ export function PostEditor({ existing }: { existing?: Post }) {
             <span aria-live="polite" className="text-xs text-ink-dim">
               {busy}
             </span>
-            <button
-              type="button"
-              className={btnSecondary}
-              disabled={Boolean(busy)}
-              onClick={() => void save('draft')}
-            >
+            <button type="button" className={btnSecondary} disabled={Boolean(busy)} onClick={() => void save("draft")}>
               {draftLabel}
             </button>
-            <button
-              type="button"
-              className={btnPrimary}
-              disabled={Boolean(busy)}
-              onClick={() => void save('published')}
-            >
-              발행
+            <button type="button" className={btnPrimary} disabled={Boolean(busy)} onClick={() => void saveForReview()}>
+              발행 확인
             </button>
             {existing && (
               <button
@@ -333,7 +376,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
           <p
             role="alert"
             className="mb-5 rounded-lg border border-line px-3.5 py-3 text-sm"
-            style={{ backgroundColor: 'var(--danger-bg)', color: 'var(--danger-fg)' }}
+            style={{ backgroundColor: "var(--danger-bg)", color: "var(--danger-fg)" }}
           >
             {error}
           </p>
@@ -356,22 +399,32 @@ export function PostEditor({ existing }: { existing?: Post }) {
                 label="slug"
                 hint={
                   slugEdited
-                    ? `발행 주소 — /posts/${slug || '…'}`
-                    : `발행 주소 — /posts/${slug || '…'} · 한글 제목은 로마자 발음으로 옮깁니다. 영어 낱말로 쓰려면 직접 고치세요.`
+                    ? `발행 주소 — /posts/${slug || "…"}`
+                    : `발행 주소 — /posts/${slug || "…"} · 한글 제목은 로마자 발음으로 옮깁니다. 영어 주소를 원하면 'AI 추천'을 누르거나 직접 고치세요.`
                 }
                 aside={
-                  slugEdited ? (
+                  <span className="flex items-center gap-2.5">
                     <button
                       type="button"
-                      className="text-[11px] font-medium text-ink-dim hover:text-ink"
-                      onClick={() => {
-                        setSlugEdited(false);
-                        setSlug(toAsciiSlug(title));
-                      }}
+                      className="text-[11px] font-medium text-ink-dim hover:text-ink disabled:opacity-50"
+                      disabled={Boolean(busy)}
+                      onClick={() => void suggestSlug()}
                     >
-                      제목에서 다시 만들기
+                      AI 추천
                     </button>
-                  ) : null
+                    {slugEdited && (
+                      <button
+                        type="button"
+                        className="text-[11px] font-medium text-ink-dim hover:text-ink"
+                        onClick={() => {
+                          setSlugEdited(false);
+                          setSlug(toAsciiSlug(title));
+                        }}
+                      >
+                        제목에서 다시 만들기
+                      </button>
+                    )}
+                  </span>
                 }
               >
                 <input
@@ -392,10 +445,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
               <fieldset>
                 <div className="mb-1.5 flex items-baseline justify-between gap-3">
                   <legend className={labelClass}>카테고리 — 정확히 1개</legend>
-                  <Link
-                    href="/admin/categories"
-                    className="text-[11px] font-medium text-ink-dim hover:text-ink"
-                  >
+                  <Link href="/admin/categories" className="text-[11px] font-medium text-ink-dim hover:text-ink">
                     카테고리 관리
                   </Link>
                 </div>
@@ -405,7 +455,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
                   <p className="text-xs text-ink-dim">카테고리를 불러오는 중…</p>
                 ) : categories.length === 0 ? (
                   <p className="text-xs text-ink-dim">
-                    카테고리가 없습니다.{' '}
+                    카테고리가 없습니다.{" "}
                     <Link href="/admin/categories" className="font-semibold underline">
                       먼저 하나 만드세요
                     </Link>
@@ -424,9 +474,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
                             setCategory(c.slug);
                             // 소분류는 카테고리에 종속이다 — 카테고리가 바뀌면
                             // 이전 소분류는 더 이상 유효하지 않으므로 비운다.
-                            setSubcategory(
-                              c.slug === existing?.category ? existing.subcategory : '',
-                            );
+                            setSubcategory(c.slug === existing?.category ? existing.subcategory : "");
                             // 직전 저장에서 뜬 오류를 함께 지운다 — 안 지우면 카테고리를
                             // 고쳐도 "목록에 없는 카테고리" 경고가 그대로 남아, 고친 게
                             // 반영되지 않은 것처럼 보인다.
@@ -457,7 +505,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
                   <p className="text-xs text-ink-dim">카테고리를 먼저 고르세요.</p>
                 ) : subOptions.length === 0 ? (
                   <p className="text-xs leading-relaxed text-ink-dim">
-                    이 카테고리에 소분류가 없습니다.{' '}
+                    이 카테고리에 소분류가 없습니다.{" "}
                     <Link href="/admin/categories" className="font-semibold underline">
                       카테고리 관리
                     </Link>
@@ -496,8 +544,8 @@ export function PostEditor({ existing }: { existing?: Post }) {
                   onChange={(e) => setTagInput(e.target.value)}
                 />
                 <p className={hintClass}>
-                  쉼표로 구분 · 색 없음. 카테고리가 &ldquo;무슨 성격의 글인가&rdquo;라면 태그는
-                  &ldquo;무엇이 나오는가&rdquo;입니다.
+                  쉼표로 구분 · 색 없음. 카테고리가 &ldquo;무슨 성격의 글인가&rdquo;라면 태그는 &ldquo;무엇이
+                  나오는가&rdquo;입니다.
                 </p>
 
                 {tags.length > 0 && (
@@ -512,15 +560,13 @@ export function PostEditor({ existing }: { existing?: Post }) {
                   <div role="status" className="mt-2.5 rounded-lg border border-ink-dim p-3">
                     <p className="text-[11px] font-bold">카테고리 이름을 태그로 다시 붙였습니다</p>
                     <p className={hintClass}>
-                      <span className="font-mono">{echoedTags.join(', ')}</span> 은(는) 카테고리가
-                      이미 말하고 있어, 태그로 두면 두 축이 같은 걸 가리킵니다.
+                      <span className="font-mono">{echoedTags.join(", ")}</span> 은(는) 카테고리가 이미 말하고 있어,
+                      태그로 두면 두 축이 같은 걸 가리킵니다.
                     </p>
                     <button
                       type="button"
                       className="mt-2 text-[11px] font-semibold underline underline-offset-2"
-                      onClick={() =>
-                        setTagInput(tags.filter((t) => !echoedTags.includes(t)).join(', '))
-                      }
+                      onClick={() => setTagInput(tags.filter((t) => !echoedTags.includes(t)).join(", "))}
                     >
                       {echoedTags.length}개 제거
                     </button>
@@ -534,17 +580,13 @@ export function PostEditor({ existing }: { existing?: Post }) {
             <Field
               htmlFor="f-excerpt"
               label="발췌문 — 비우면 본문에서 자동 생성"
-              aside={
-                <span className="text-[11px] tabular-nums text-ink-dim">
-                  {(excerpt || excerptHint).length}자
-                </span>
-              }
+              aside={<span className="text-[11px] tabular-nums text-ink-dim">{(excerpt || excerptHint).length}자</span>}
             >
               <textarea
                 id="f-excerpt"
                 className={`${fieldClass} h-24 resize-y leading-relaxed`}
                 value={excerpt}
-                placeholder={excerptHint || '본문을 쓰면 자동 생성 미리보기가 표시됩니다'}
+                placeholder={excerptHint || "본문을 쓰면 자동 생성 미리보기가 표시됩니다"}
                 onChange={(e) => setExcerpt(e.target.value)}
               />
             </Field>
@@ -572,13 +614,11 @@ export function PostEditor({ existing }: { existing?: Post }) {
                   />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="break-all font-mono text-[11px] leading-relaxed text-ink-dim">
-                    {coverImage}
-                  </p>
+                  <p className="break-all font-mono text-[11px] leading-relaxed text-ink-dim">{coverImage}</p>
                   <button
                     type="button"
                     className="mt-1.5 text-[11px] font-medium text-ink-dim hover:text-ink"
-                    onClick={() => setCoverImage('')}
+                    onClick={() => setCoverImage("")}
                   >
                     커버 제거
                   </button>
@@ -597,7 +637,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
               hint="이미지는 붙여넣기하면 업로드 후 커서 위치에 삽입됩니다"
               aside={
                 <span className="text-[11px] tabular-nums text-ink-dim">
-                  {content.length.toLocaleString('ko-KR')}자
+                  {content.length.toLocaleString("ko-KR")}자
                 </span>
               }
             >
@@ -623,9 +663,7 @@ export function PostEditor({ existing }: { existing?: Post }) {
                   // 외부 입력이 아니며, 발행 경로는 서버의 renderMarkdown() 을 따로 탄다.
                   <div className="md" dangerouslySetInnerHTML={{ __html: previewHtml }} />
                 ) : (
-                  <p className="py-10 text-center text-xs text-ink-dim">
-                    본문을 쓰면 여기에 그대로 나타납니다.
-                  </p>
+                  <p className="py-10 text-center text-xs text-ink-dim">본문을 쓰면 여기에 그대로 나타납니다.</p>
                 )}
               </div>
             </Panel>

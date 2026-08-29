@@ -41,6 +41,28 @@ export function toAsciiSlug(input: string): string {
     .replace(/^-|-$/g, '');
 }
 
+
+/**
+ * **이미 영문인 값**을 주소 조각으로 다듬는다 — 모델이 제안한 slug 이 그 대상이다.
+ *
+ * `toAsciiSlug` 와 갈라지는 지점이 하나다: 이 함수는 한글을 **로마자로 옮기지 않고
+ * 버린다.** 제안의 존재 이유가 "발음 표기를 피하는 것"이라, 모델이 지시를 어기고
+ * 한글을 넣었을 때 옮겨주면 정확히 피하려던 결과가 나온다. 남는 게 없으면 빈 문자열이고,
+ * 그때 호출부가 로마자 폴백으로 떨어진다.
+ */
+export function sanitizeAsciiSlug(input: string, max = 80): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, max)
+    // 잘린 끝이 하이픈으로 남을 수 있다
+    .replace(/-$/, '');
+}
+
 /**
  * 라우트 params 로 받은 slug 를 저장값과 맞춘다.
  *

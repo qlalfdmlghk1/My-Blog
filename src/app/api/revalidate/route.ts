@@ -46,7 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: '권한이 없습니다.' }, { status: 403 });
   }
 
-  let body: { slug?: unknown; tags?: unknown };
+  let body: { slug?: unknown; tags?: unknown; scope?: unknown };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -58,6 +58,7 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const slug = typeof body.slug === 'string' ? body.slug : '';
   const tags = strings(body.tags);
+  const scope = typeof body.scope === 'string' ? body.scope : '';
 
   // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다
   const paths = ['/', '/rss.xml', '/sitemap.xml'];
@@ -87,6 +88,22 @@ export async function POST(request: Request): Promise<NextResponse> {
       pushPath(pageHref(base, page));
     }
   };
+
+  // 용어 사전은 저장된 본문이 아니라 렌더 시점에 글에 링크를 붙인다
+  // (`lib/markdown.ts`). 그래서 사전이 바뀌면 그 낱말을 쓴 글의 HTML 이 전부 낡는다.
+  //
+  // 전량을 무효화하는 근거는 "어느 글인지 찾는 게 비싸서"가 아니다 — 위에서 이미
+  // getPublishedPosts() 로 발행 글을 다 읽었고 본문도 함께 넘어왔다(strip 이 메모리에서
+  // 버릴 뿐이다). 표적 탐색의 추가 Firestore 읽기는 0회다.
+  //
+  // 진짜 근거는 revalidatePath 가 **무효화 표시만 하고 재생성은 요청 시점까지 미룬다**는
+  // 것이다. 아무도 안 보는 글은 다시 만들어지지 않으므로 실비용이 트래픽에 비례한다.
+  // 글 수 × 용어 수가 대략 8,000 을 넘으면 이 판단이 뒤집힌다 — 그때는 이미 읽어둔
+  // 본문을 스캔해 매칭된 글만 무효화한다(추가 읽기는 그때도 0회다).
+  if (scope === 'glossary') {
+    pushPath('/glossary');
+    for (const post of posts) pushPath(`/posts/${post.slug}`);
+  }
 
   pushList('/', posts.length);
   for (const tag of tags) {

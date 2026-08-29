@@ -116,6 +116,22 @@
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
 }
+/* 용어 사전 링크 — 본문에서 자동으로 걸린다 (lib/glossary.ts).
+   일반 링크와 같은 실선 + 굵게를 쓰면 "다른 글로 나간다"로 읽힌다. 점선 밑줄은
+   사전에서 '뜻풀이가 있다'는 관용 표시라, 이동이 아니라 참조로 읽힌다.
+   글자색은 본문 그대로 둔다 — 흐리게 하면 본문 대비가 링크마다 들쭉날쭉해진다. */
+.md a.term {
+  font-weight: inherit;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--text-dim);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.md a.term:hover {
+  text-decoration-style: solid;
+  text-decoration-color: currentColor;
+}
+
 .md ul,
 .md ol {
   padding-left: 1.35em;

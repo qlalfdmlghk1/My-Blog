@@ -3,7 +3,9 @@ import 'server-only';
 import { Marked } from 'marked';
 import { createHighlighter, type Highlighter } from 'shiki';
 
+import { buildGlossaryIndex, splitByGlossary } from '@/lib/glossary';
 import { slugify } from '@/lib/slug';
+import type { GlossaryAnchor } from '@/types/glossary';
 
 /**
  * 마크다운 → HTML 변환은 서버에서만 수행한다.
@@ -47,7 +49,14 @@ export interface RenderedMarkdown {
   toc: TocEntry[];
 }
 
-export async function renderMarkdown(markdown: string): Promise<RenderedMarkdown> {
+/**
+ * @param glossary 본문에서 자동 링크할 용어 표기. 비우면 링크를 걸지 않는다 —
+ *   기본값을 빈 배열로 둬서 사전을 읽지 않는 호출부(OG 이미지 등)가 그대로 쓴다.
+ */
+export async function renderMarkdown(
+  markdown: string,
+  glossary: readonly GlossaryAnchor[] = [],
+): Promise<RenderedMarkdown> {
   if (!markdown.trim()) return { html: '', toc: [] };
   const hl = await highlighter();
   const loaded = new Set(hl.getLoadedLanguages());
@@ -69,6 +78,30 @@ export async function renderMarkdown(markdown: string): Promise<RenderedMarkdown
     for (let n = 2; usedIds.has(id); n += 1) id = `${base}-${n}`;
     usedIds.add(id);
     return id;
+  }
+
+  const glossaryIndex = buildGlossaryIndex(glossary);
+  /** 한 글에서 같은 용어에 링크를 두 번 걸지 않는다 — 첫 등장만 */
+  const linkedTerms = new Set<string>();
+  /**
+   * 용어 링크를 끄는 구간.
+   *
+   * 제목과 링크 안에서는 걸지 않는다. 링크 안이면 `<a>` 가 겹쳐 브라우저가
+   * 태그를 끊어버리고(중첩 `<a>` 는 유효하지 않다), 제목 안이면 목차 항목과
+   * 본문 제목의 모양이 갈린다. 파싱은 렌더러 안에서 동기로 끝나므로
+   * 이 플래그만으로 구간이 정확히 잡힌다.
+   */
+  let suppressGlossary = 0;
+
+  function withGlossary(text: string): string {
+    if (suppressGlossary > 0 || !glossaryIndex.pattern) return escapeHtml(text);
+    return splitByGlossary(text, glossaryIndex, linkedTerms)
+      .map((seg) =>
+        seg.slug
+          ? `<a class="term" href="/glossary#${seg.slug}">${escapeHtml(seg.text)}</a>`
+          : escapeHtml(seg.text),
+      )
+      .join('');
   }
 
   const md = new Marked({
@@ -98,7 +131,9 @@ export async function renderMarkdown(markdown: string): Promise<RenderedMarkdown
       },
       /** 목차가 걸 앵커를 만든다. 수집과 id 부여를 한곳에서 해야 둘이 어긋나지 않는다 */
       heading(token) {
+        suppressGlossary += 1;
         const text = this.parser.parseInline(token.tokens);
+        suppressGlossary -= 1;
         const plain = token.text.replace(/[*_`~]/g, '').trim();
         const depth = token.depth;
         if (depth === 2 || depth === 3) {
@@ -113,7 +148,24 @@ export async function renderMarkdown(markdown: string): Promise<RenderedMarkdown
         const href = token.href ?? '';
         const external = /^https?:\/\//.test(href);
         const attrs = external ? ' target="_blank" rel="noopener noreferrer"' : '';
-        return `<a href="${escapeHtml(href)}"${attrs}>${this.parser.parseInline(token.tokens)}</a>`;
+        suppressGlossary += 1;
+        const label = this.parser.parseInline(token.tokens);
+        suppressGlossary -= 1;
+        return `<a href="${escapeHtml(href)}"${attrs}>${label}</a>`;
+      },
+      /**
+       * 평범한 글자 — 여기서만 용어 링크를 건다.
+       *
+       * marked 는 text 토큰을 **이스케이프 전 원문**으로 넘기고 렌더러가
+       * 이스케이프한다. 그래서 용어를 찾는 것도 이 원문 위에서 해야 한다 —
+       * 이스케이프된 문자열에서 찾으면 `&amp;` 가 낀 표기를 놓친다.
+       * (인라인 코드는 codespan 렌더러가 따로 받으므로 여기 오지 않는다)
+       */
+      text(token) {
+        if ('tokens' in token && token.tokens) return this.parser.parseInline(token.tokens);
+        // 이미 이스케이프된 토큰(raw block 안)은 손대지 않는다
+        if ('escaped' in token && token.escaped) return token.text;
+        return withGlossary(token.text);
       },
     },
   });

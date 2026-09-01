@@ -125,9 +125,9 @@ function describeCategoryFailure(err: unknown): string {
 
 function Stat({ label, value }: { label: string; value?: number }) {
   return (
-    <div className="rounded-xl border border-line bg-surface px-3.5 py-3">
+    <div className="rounded-xl border border-line bg-surface px-3.5 py-3 shadow-card">
       <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">{label}</dt>
-      <dd className="mt-0.5 text-xl font-bold tabular-nums">
+      <dd className="mt-0.5 text-[22px] font-bold tabular-nums">
         {value ?? <span className="text-ink-dim">–</span>}
       </dd>
     </div>
@@ -172,7 +172,7 @@ function PostRow({ post, category }: { post: PostSummary; category?: Category })
      * 링크는 그대로 하나라 새 탭 열기·키보드 포커스·스크린리더 링크 목록이 살아 있다.
      * 눌리는 범위는 원래 있던 행 배경(hover:bg-surface)이 그대로 보여준다.
      */
-    <li className="relative rounded-xl border border-line p-4 transition-colors hover:bg-surface focus-within:bg-surface">
+    <li className="relative rounded-xl border border-line p-4 transition-[background-color,box-shadow] duration-200 hover:bg-surface hover:shadow-card focus-within:bg-surface focus-within:shadow-card motion-reduce:transition-none">
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill status={post.status} />
         <CategoryBadge slug={post.category} category={category} size="sm" />

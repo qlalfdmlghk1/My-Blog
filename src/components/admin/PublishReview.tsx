@@ -556,8 +556,9 @@ function publishError(post: Post): string | null {
   if (!post.title.trim()) return '제목이 비어 있습니다. 편집 화면에서 채운 뒤 발행하세요.';
   if (!post.content.trim()) return '본문이 비어 있습니다. 편집 화면에서 채운 뒤 발행하세요.';
   if (!post.slug.trim()) return 'slug 이 비어 있습니다. 편집 화면에서 채우세요.';
-  if (!post.category || !post.subcategory) {
-    return '분류가 비어 있습니다. 편집 화면에서 카테고리·소분류를 고르세요.';
+  // 소분류는 보지 않는다 — 선택 사항이라 비어 있어도 발행할 수 있다(firestore.rules 의 validPost).
+  if (!post.category) {
+    return '카테고리가 비어 있습니다. 편집 화면에서 고른 뒤 발행하세요.';
   }
   return null;
 }

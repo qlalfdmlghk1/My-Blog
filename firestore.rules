@@ -36,9 +36,17 @@ service cloud.firestore {
         && d.status in ['draft', 'published']
         && d.category is string && d.category.size() > 0 && d.category.size() < 100
         && categoryExists(database, d.category)
-        // 소분류는 필수다 — 화면에서만 강제하면 규칙을 우회한 쓰기로 분류가 뚫린다
-        && d.subcategory is string && d.subcategory.size() > 0 && d.subcategory.size() < 100
-        && subcategoryExists(database, d.category, d.subcategory)
+        // 소분류는 **선택 사항**이다. 빈 문자열 = 소분류 없음.
+        //
+        // 필수로 두면 카테고리에 소분류가 아직 하나도 없을 때 그 카테고리로는 글을
+        // 아예 못 쓴다. 소분류를 지운 뒤 남은 글도 같은 이유로 수정이 막혔다 —
+        // 값은 남아 있는데 가리키는 문서가 없어 subcategoryExists() 에 걸렸다.
+        //
+        // 다만 값이 들어 있다면 실재하는 소분류여야 한다. 소분류는 글의 주소를 이루므로
+        // (`/categories/{slug}/{sub}`) 없는 값을 가리키면 죽은 링크가 생긴다.
+        // 비어 있는 글은 사이드바에서 '분류 없음'으로 모인다(lib/posts.ts 의 looseCount).
+        && d.subcategory is string && d.subcategory.size() < 100
+        && (d.subcategory == '' || subcategoryExists(database, d.category, d.subcategory))
         && d.tags is list && d.tags.size() <= 20;
   }
 

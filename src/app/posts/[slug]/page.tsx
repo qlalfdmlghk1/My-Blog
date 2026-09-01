@@ -93,10 +93,13 @@ export default async function PostPage({ params }: Params) {
       id="main"
       className={
         withToc
-          ? 'mx-auto max-w-prose px-5 py-12 xl:grid xl:max-w-shell xl:grid-cols-[minmax(0,44rem)_13rem] xl:gap-10 xl:justify-center'
-          : 'mx-auto max-w-prose px-5 py-12'
+          ? 'reading mx-auto max-w-prose px-5 py-12 xl:grid xl:max-w-shell xl:grid-cols-[minmax(0,44rem)_13rem] xl:gap-10 xl:justify-center'
+          : 'reading mx-auto max-w-prose px-5 py-12'
       }
-      /* 이 글의 카테고리 색을 화면 전체에 얹는다.
+      /* 위 `reading` 이 드래그 선택(형광펜)을 켜는 스위치다 — globals.css 의 ::selection 은
+          이 클래스 안에서만 걸리고, 목록·사전·관리자 화면은 브라우저 기본 선택색으로 남는다.
+
+          여기 style 은 그 형광펜에 이 글의 카테고리 색을 얹는다.
            - `--term-line`: 용어 링크의 점선 밑줄색 (globals.css 의 .md a.term)
            - `--select-bg` · `--select-fg`: 드래그했을 때의 선택 색 (globals.css 의 ::selection)
           본문(article)에만 얹으면 헤더·관련 용어·목차처럼 형제 요소가 상속을 못 받아

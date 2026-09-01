@@ -264,8 +264,9 @@ export default function AdminCategoriesPage() {
   }
 
   async function removeSub(sub: Subcategory) {
-    // 글이 남은 소분류를 지우면 그 글들은 어느 소분류에도 안 잡히고,
-    // 다시 저장할 때 규칙(subcategoryExists)에 걸려 수정조차 막힌다.
+    // 글이 남은 소분류를 지우면 그 글들이 조용히 '분류 없음'으로 떨어진다.
+    // 규칙은 이제 빈 소분류를 허용하므로 수정이 막히지는 않지만, 지운 사람이 모르는 사이
+    // 글의 분류가 바뀌는 것은 여전하다 — 글을 먼저 옮기게 하고 여기서는 막는다.
     if ((subCounts.get(`${sub.category}/${sub.slug}`) ?? 0) > 0) return;
     if (!window.confirm(`소분류 "${sub.name}" 을(를) 삭제합니다. 되돌릴 수 없습니다.`)) return;
 
@@ -571,7 +572,7 @@ export default function AdminCategoriesPage() {
 
                   {subsOf(c.slug).length === 0 ? (
                     <p className={hintClass}>
-                      소분류가 없으면 이 카테고리에 글을 쓸 수 없습니다 — 하나 이상 만드세요.
+                      소분류가 없습니다. 이 카테고리의 글은 &lsquo;분류 없음&rsquo;으로 남습니다.
                     </p>
                   ) : (
                     <ul className="mt-2 space-y-1">

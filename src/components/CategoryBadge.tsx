@@ -29,6 +29,11 @@ export function CategoryBadge({
       style={{
         backgroundColor: category ? `var(--pal-${category.palette}-bg)` : 'var(--tag-bg)',
         color: category ? `var(--pal-${category.palette}-fg)` : 'var(--tag-fg)',
+        // 글자색을 아주 옅게 섞은 안쪽 선. 파스텔 배경은 흰 바탕과 명도차가 작아
+        // 윤곽이 뭉개지는데, 선을 그 배지 자신의 색에서 뽑으면 슬롯이 무엇이든
+        // 따로 값을 정하지 않아도 된다. ring 대신 inset 그림자를 쓰는 이유는
+        // 바깥쪽 링이 배지를 사방 1px 키워 옆 요소와의 정렬을 흐트러뜨리기 때문이다.
+        boxShadow: 'inset 0 0 0 1px color-mix(in srgb, currentColor 14%, transparent)',
       }}
     >
       {category?.name ?? slug}

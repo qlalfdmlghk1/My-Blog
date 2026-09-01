@@ -46,7 +46,16 @@ export async function CategoryList({ slug, page }: { slug: string; page: number 
       activeCategory={category.slug}
     >
       <header className="border-b border-line pb-6">
-        <h1 className="text-2xl font-bold tracking-tight">{category.name}</h1>
+        {/* 사이드바 트리와 같은 색 점을 제목에도 단다 — 어느 분류를 보고 있는지
+            목록 위쪽에서 바로 읽히고, 색이 등장하는 자리가 분류로 일관된다. */}
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: `var(--pal-${category.palette}-fg)` }}
+          />
+          {category.name}
+        </h1>
         {/* 개수는 이 페이지가 아니라 카테고리 전체 기준이다 — 분류의 크기를 알리는 숫자 */}
         <p className="mt-2 text-sm text-ink-dim">
           {category.hint ? `${category.hint} · ` : ''}

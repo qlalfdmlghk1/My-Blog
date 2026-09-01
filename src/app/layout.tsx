@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 
+import { ClickButterflies } from '@/components/ClickButterflies';
 import { SiteFooter } from '@/components/SiteFooter';
 import { SiteHeader } from '@/components/SiteHeader';
 import { categoryCssVariables } from '@/lib/category-css';
@@ -72,6 +73,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* 콘텐츠가 짧은 화면(404·로그인·빈 카테고리)에서도 푸터를 바닥에 붙인다 */}
         <div className="flex-1">{children}</div>
         <SiteFooter />
+        {/* 클릭한 자리로 나비가 날아오는 레이어. fixed 라 DOM 순서는 상관없지만,
+            본문 뒤에 두어 스크린리더가 먼저 마주치지 않게 한다.
+            동작 최소화 설정과 관리 화면에서는 스스로 꺼진다. */}
+        <ClickButterflies />
       </body>
     </html>
   );

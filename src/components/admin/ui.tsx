@@ -3,13 +3,15 @@ import type { PostStatus } from '@/types/post';
 /**
  * 관리자 화면 공통 표현 조각.
  *
- * 공개 화면과 같은 토큰(bg · surface · line · ink · ink-dim)만 쓴다 —
+ * 공개 화면과 같은 토큰(bg · surface · line · ink · ink-dim · accent)만 쓴다 —
  * 관리자라고 색을 더 얹으면 "색은 분류에만" 규칙이 관리자에서부터 무너지고,
  * 카테고리 색이 화면에서 눈에 띄지 않게 된다.
+ * accent(제비꽃)는 **주요 버튼 한 곳**에만 쓴다. 근거는 globals.css 의 --accent 주석.
  *
- * 토큰 색에 Tailwind 투명도 수식(`bg-bg/80`)은 쓰지 않는다 —
- * 값이 `var(--bg)` 라 `<alpha-value>` 자리가 없어 조용히 무시된다.
- * 흐림이 필요하면 요소에 `opacity-*` 를 준다.
+ * 투명도 수식(`bg-bg/80`)은 bg · surface 에서만 동작한다 — 그 둘만
+ * `rgb(var(--*-rgb) / <alpha-value>)` 로 조립돼 있다(tailwind.config.ts).
+ * line · ink · ink-dim 에 `/80` 을 붙이면 유틸이 조용히 생성되지 않으므로,
+ * 그쪽에서 흐림이 필요하면 요소에 `opacity-*` 를 준다.
  */
 
 export const labelClass = 'block text-xs font-semibold text-ink-dim';
@@ -24,9 +26,11 @@ export const fieldClass =
   'w-full rounded-lg border border-line bg-bg px-3 py-2.5 text-sm transition-colors hover:border-ink-dim';
 
 const btnBase =
-  'inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50';
+  // transition-colors 와 transition-shadow 를 따로 얹으면 뒤엣것이 앞엣것을 덮어
+  // 색 전환이 사라진다. 한 선언에 두 속성을 함께 적는다.
+  'inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-[color,background-color,border-color,box-shadow,opacity] duration-200 motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-50';
 
-export const btnPrimary = `${btnBase} border border-ink bg-ink text-bg hover:opacity-90`;
+export const btnPrimary = `${btnBase} border border-transparent bg-accent text-accent-fg shadow-card hover:bg-accent-hover hover:shadow-raise`;
 export const btnSecondary = `${btnBase} border border-line hover:bg-surface`;
 export const btnQuiet = `${btnBase} border border-transparent text-ink-dim hover:bg-surface hover:text-ink`;
 
@@ -146,7 +150,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={`rounded-xl border border-line bg-surface p-4 sm:p-5 ${className}`}>
+    <section className={`rounded-xl border border-line bg-surface p-4 shadow-card sm:p-5 ${className}`}>
       {title && (
         <div className="mb-4">
           <h2 className="text-sm font-bold tracking-tight">{title}</h2>

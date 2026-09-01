@@ -13,13 +13,20 @@ import { SITE } from '@/lib/site';
  */
 export function SiteHeader() {
   /*
-   * bg-bg 에 투명도 수식(bg-bg/80)을 쓰지 않는다 — 색 토큰이 raw var(--bg) 라
-   * <alpha-value> 자리가 없어 유틸이 아예 생성되지 않는다(빌드 CSS 에 .bg-bg\/80 없음).
-   * 그러면 backdrop-blur 만 남아 헤더 배경이 통째로 사라진다. 흐림이 필요하면
-   * 요소에 opacity-* 를 주거나 토큰을 rgb(... / <alpha-value>) 로 바꿀 것.
+   * 반투명 + blur 로 뒤가 비친다. 예전에는 `bg-bg` 불투명이었다 — 토큰이 raw
+   * var(--bg) 라 <alpha-value> 자리가 없었고, `bg-bg/80` 을 쓰면 유틸이 아예
+   * 생성되지 않아(빌드 CSS 에 .bg-bg\/80 없음) 배경이 통째로 사라졌기 때문이다.
+   * 지금은 tailwind.config 의 토큰이 rgb(var(--bg-rgb) / <alpha-value>) 라 수식이 산다.
+   *
+   * 지원하지 않는 브라우저에서는 backdrop-filter 가 무시되고 반투명만 남아
+   * 글이 비쳐 읽기 어려워진다. supports- 변형으로 갈라 그때는 불투명으로 되돌린다.
+   *
+   * 불투명도는 `/75` 처럼 **5 단위 눈금 위의 값**이어야 한다. 눈금에 없는 값(`/72`)을
+   * 적으면 유틸이 생성되지 않고 아무 경고도 없이 불투명 헤더로 남는다. 눈금 밖의
+   * 값이 꼭 필요하면 대괄호로 적는다(`bg-bg/[0.72]`).
    */
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-bg backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-line bg-bg supports-[backdrop-filter]:bg-bg/75 supports-[backdrop-filter]:backdrop-blur-xl">
       {/* 헤더 내비를 건너뛰고 본문으로 바로 가는 표준 링크.
           넓은 화면에서 사이드바가 왼쪽에 보이면서 DOM 상으로는 본문 뒤에 오는
           순서 불일치는 이 링크로 해결되지 않는다 — 도착지가 본문이라 분류에

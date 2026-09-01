@@ -219,7 +219,6 @@ export function PostEditor({ existing }: { existing?: Post }) {
         : '제목에서 slug 을 만들지 못했습니다 — 로마자로 옮길 글자가 없습니다. 직접 입력하세요.';
     }
     if (!category) return '카테고리를 고르세요.';
-    if (!subcategory) return '소분류를 고르세요.';
     // 목록에 없는 카테고리를 가리키는 기존 글. 라디오는 아무것도 선택되지 않은 것처럼
     // 보이지만 category 값 자체는 남아 있어, 이 검사가 없으면 그대로 통과한 뒤
     // firestore.rules 의 categoryExists() 에 걸려 permissions 원문 에러만 뜬다.
@@ -228,7 +227,9 @@ export function PostEditor({ existing }: { existing?: Post }) {
     }
     // 소분류도 같은 이유로 미리 잡는다 — 규칙의 subcategoryExists() 에 걸리면
     // permissions 원문 에러만 뜨고 무엇이 잘못됐는지 화면에 안 남는다.
-    if (categories && !subOptions.some((s) => s.slug === subcategory)) {
+    // 빈 값은 통과시킨다 — 소분류는 선택 사항이고(firestore.rules 의 validPost)
+    // 비어 있는 글은 사이드바에서 '분류 없음'으로 모인다.
+    if (subcategory && categories && !subOptions.some((s) => s.slug === subcategory)) {
       return `이 글은 "${category}" 에 없는 소분류 "${subcategory}" 를 가리킵니다. 아래에서 다시 고르세요.`;
     }
     if (status === 'published' && !content.trim()) return '본문이 비어 있습니다.';
@@ -524,21 +525,41 @@ export function PostEditor({ existing }: { existing?: Post }) {
               </fieldset>
 
               <fieldset>
-                <legend className={`${labelClass} mb-1.5`}>소분류 — 정확히 1개</legend>
+                <legend className={`${labelClass} mb-1.5`}>소분류 — 선택</legend>
                 {!categories ? (
                   <p className="text-xs text-ink-dim">불러오는 중…</p>
                 ) : !category ? (
                   <p className="text-xs text-ink-dim">카테고리를 먼저 고르세요.</p>
                 ) : subOptions.length === 0 ? (
                   <p className="text-xs leading-relaxed text-ink-dim">
-                    이 카테고리에 소분류가 없습니다.{' '}
+                    이 카테고리에 소분류가 없습니다. 이대로 저장하면 이 글은 &lsquo;분류
+                    없음&rsquo;으로 남습니다.{' '}
                     <Link href="/admin/categories" className="font-semibold underline">
                       카테고리 관리
                     </Link>
-                    에서 먼저 만드세요.
+                    에서 만들 수 있습니다.
                   </p>
                 ) : (
                   <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                    {/* 고르지 않음을 **고르는** 자리. 라디오는 한 번 선택하면 해제할 수
+                        없어서, 이 칸이 없으면 실수로 누른 소분류를 되돌릴 방법이 없다.
+                        빈 문자열이 곧 '분류 없음'이라 저장값도 그대로 쓴다. */}
+                    <label className="cursor-pointer">
+                      <input
+                        type="radio"
+                        name="subcategory"
+                        value=""
+                        checked={subcategory === ''}
+                        onChange={() => {
+                          setSubcategory('');
+                          setError(null);
+                        }}
+                        className="peer sr-only"
+                      />
+                      <span className="flex items-center gap-2 rounded-lg border border-dashed border-line bg-bg px-2.5 py-2 text-sm text-ink-dim transition-colors hover:border-ink-dim peer-checked:border-solid peer-checked:border-ink peer-checked:font-semibold peer-checked:text-ink peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[color:var(--text)]">
+                        <span className="truncate">분류 없음</span>
+                      </span>
+                    </label>
                     {subOptions.map((s) => (
                       <label key={s.slug} className="cursor-pointer">
                         <input

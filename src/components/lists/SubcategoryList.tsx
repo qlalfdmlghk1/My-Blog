@@ -69,7 +69,15 @@ export async function SubcategoryList({
             {parent.name}
           </Link>
         </nav>
-        <h1 className="text-2xl font-bold tracking-tight">{found.name}</h1>
+        {/* 색은 대분류의 것이다 — 소분류는 자기 색을 갖지 않는다(SiteSidebar 와 같은 규칙) */}
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+          <span
+            aria-hidden
+            className="size-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: `var(--pal-${parent.palette}-fg)` }}
+          />
+          {found.name}
+        </h1>
         {/* 개수는 이 페이지가 아니라 소분류 전체 기준 */}
         <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>
       </header>

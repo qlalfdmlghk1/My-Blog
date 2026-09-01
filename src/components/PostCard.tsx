@@ -30,11 +30,13 @@ export function PostCard({
      */
     <article className="group relative border-b border-line py-4 first:pt-0">
       {/*
-        호버·키보드 포커스 시 이 판에 색이 깔린다 — 눌리는 범위가 카드 한 칸임을 보여준다.
+        호버·키보드 포커스 시 이 판에 색이 깔리고 그림자가 붙는다 — 눌리는 범위가
+        카드 한 칸임을 보여준다. 배경만으로는 목록이 길어질수록 어느 칸에 올라와 있는지
+        흐려져서, 판이 살짝 떠오르게 두어 지금 겨냥한 칸을 분명히 한다.
         좌우로는 글 폭 밖까지 넓힌다(-mx). 좁은 화면에서는 바깥 여백이 20px 뿐이라
         16px 을 다 쓰면 화면 끝에 닿아 잘린 것처럼 보이므로 한 단계 줄여 둔다.
       */}
-      <div className="-mx-3 rounded-xl px-3 py-4 transition-colors group-hover:bg-surface group-focus-within:bg-surface sm:-mx-4 sm:px-4">
+      <div className="-mx-3 rounded-xl px-3 py-4 transition-[background-color,box-shadow] duration-200 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transition-none sm:-mx-4 sm:px-4">
         <div className="mb-2.5 flex items-center gap-2.5">
           <CategoryBadge slug={post.category} category={category} size="sm" />
           <time

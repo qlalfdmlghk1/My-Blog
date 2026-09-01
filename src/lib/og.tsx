@@ -39,10 +39,10 @@ export async function loadOgFont(): Promise<Buffer> {
  * globals.css `:root` 의 라이트 뉴트럴과 같은 값이어야 한다 — 한쪽만 바꾸면
  * OG 카드만 옛 색으로 남는다.
  */
-const INK = '#16181d';
-const INK_DIM = '#5f6672';
-const BG = '#ffffff';
-const LINE = '#e1e4ea';
+const INK = '#16151a';
+const INK_DIM = '#646073';
+const BG = '#fcfcfd';
+const LINE = '#e5e3ee';
 
 export function OgCard({
   title,

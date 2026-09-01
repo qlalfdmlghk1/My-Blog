@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   filterDictionaryByCategory,
@@ -131,19 +131,6 @@ export function DictionaryBrowser({
                         key={term.slug}
                         id={term.slug}
                         className="scroll-mt-20"
-                        // 이 항목을 드래그했을 때의 선택 색을 그 용어의 분류 색으로 맞춘다.
-                        // 글 상세가 글의 카테고리 색으로 맞추는 것과 같은 규약이고
-                        // (globals.css 의 ::selection), 사전에서는 화면이 아니라 **항목마다**
-                        // 분류가 다르므로 여기 개별 항목에 얹는다.
-                        // 분류가 없으면 변수를 얹지 않아 기본 노랑으로 떨어진다.
-                        style={
-                          found
-                            ? ({
-                                '--select-bg': `var(--pal-${found.palette}-bg)`,
-                                '--select-fg': `var(--pal-${found.palette}-fg)`,
-                              } as CSSProperties)
-                            : undefined
-                        }
                       >
                         <dt className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                           {/* 본문의 용어 링크와 같은 표시 — 점선 밑줄을 그 용어가 속한

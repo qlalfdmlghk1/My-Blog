@@ -52,7 +52,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main id="main" className="mx-auto flex max-w-shell justify-center px-5 py-16 sm:py-24">
+    // cursor-auto — 로그인도 작업 화면이라 꽃 커서를 끈다(admin/layout.tsx 와 같은 기준)
+    <main
+      id="main"
+      className="mx-auto flex max-w-shell cursor-auto justify-center px-5 py-16 sm:py-24"
+    >
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <p className="text-[11px] font-bold uppercase tracking-wider text-ink-dim">
@@ -64,7 +68,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="rounded-xl border border-line bg-surface p-6">
+        <div className="rounded-2xl border border-line bg-surface p-6 shadow-raise">
           {!configured ? (
             <p className="text-sm leading-relaxed text-ink-dim">
               Firebase 설정이 없습니다. <code className="font-mono">.env.local</code> 의

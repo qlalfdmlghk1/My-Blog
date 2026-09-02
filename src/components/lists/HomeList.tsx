@@ -30,7 +30,12 @@ export async function HomeList({ page }: { page: number }) {
 
   return (
     <ListShell categories={categories} tags={tags} total={posts.length}>
-      <SiteIntro />
+      {/* 숫자는 이 목록이 이미 집계한 값을 넘긴다 — 소개가 따로 Firestore 를 읽지 않는다 */}
+      <SiteIntro
+        postCount={posts.length}
+        categoryCount={categories.length}
+        tagCount={tags.length}
+      />
 
       {posts.length === 0 ? (
         <p className="py-20 text-center text-sm text-ink-dim">
@@ -43,7 +48,7 @@ export async function HomeList({ page }: { page: number }) {
         </p>
       ) : (
         <>
-          <div className="mt-8">
+          <div className="stagger mt-8">
             {paged.items.map((p) => (
               <PostCard key={p.id} post={p} category={byslug.get(p.category)} />
             ))}

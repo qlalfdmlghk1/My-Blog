@@ -40,7 +40,22 @@ import { PALETTE_IDS, type PaletteId } from '@/lib/palette';
  *   날아간다. 누른 자리가 아니면 효과의 의미가 없다.
  * - 글을 드래그해 고른 직후 — 이 블로그는 드래그 선택에 형광펜 색을 쓴다. 그 위를
  *   가로질러 날면 선택한 범위를 가린다.
+ * - **무언가를 하는 클릭** — 링크·버튼·입력칸처럼 누르면 실제로 일이 벌어지는 자리다.
+ *   누른 결과(페이지 이동 · 메뉴 열림 · 저장)에 눈이 가야 하는데 나비가 함께 날아오면
+ *   시선이 갈린다. 링크는 특히 그 자리를 곧 떠나므로 나비가 반쯤 오다 잘린다.
+ *   나비는 **아무 일도 일어나지 않는 클릭**에만 남긴다 — 여백이나 글 위를 눌렀을 때다.
  */
+
+/**
+ * 누르면 무언가 일어나는 요소들. 이 안(또는 그 자손)을 누르면 나비를 부르지 않는다.
+ *
+ * 태그 이름만으로 가르지 않고 `role` 까지 함께 보는 이유는, 스타일 때문에 `div` 로
+ * 만든 뒤 `role="button"` 을 붙인 조작 요소가 흔하기 때문이다. 반대로 태그가 `button`
+ * 이면 role 이 없어도 조작 요소다 — 두 축을 다 적어야 새는 자리가 없다.
+ * `summary` 는 접기·펼치기(용어 사전의 필터)라 누르면 화면이 바뀐다.
+ */
+const INTERACTIVE_SELECTOR =
+  'a, button, input, textarea, select, label, summary, [role="button"], [role="link"], [role="tab"], [role="menuitem"], [contenteditable="true"]';
 
 /** 한 번에 날아오는 나비 수. 4마리부터는 무리로 보여 "한 마리가 왔다"는 맛이 사라진다 */
 const BUTTERFLY_COUNT = 3;
@@ -82,6 +97,12 @@ export function ClickButterflies() {
 
       const selection = window.getSelection();
       if (selection && !selection.isCollapsed) return;
+
+      // 누른 지점이 조작 요소 **안**인지를 본다. `event.target` 자신만 검사하면
+      // 버튼 안의 아이콘이나 링크 안의 글자를 눌렀을 때 그 자식이 target 이 되어
+      // 그대로 통과한다. closest() 는 조상까지 거슬러 올라가 그 경우를 막는다.
+      const target = event.target;
+      if (target instanceof Element && target.closest(INTERACTIVE_SELECTOR)) return;
 
       release(layer, event.clientX, event.clientY);
     }

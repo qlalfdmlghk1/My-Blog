@@ -59,7 +59,7 @@ export async function SubcategoryList({
       activeCategory={parent.slug}
       activeSubcategory={found.slug}
     >
-      <header className="border-b border-line pb-6">
+      <header className="rise border-b border-line pb-6">
         {/* 소분류만 보면 어느 대분류 소속인지 알 수 없다 — 상위를 함께 보이고 링크한다 */}
         <nav aria-label="상위 분류" className="mb-1.5 text-xs text-ink-dim">
           <Link
@@ -88,7 +88,7 @@ export async function SubcategoryList({
         </p>
       ) : (
         <>
-          <div className="mt-8">
+          <div className="stagger mt-8">
             {paged.items.map((p) => (
               <PostCard key={p.id} post={p} category={parent} />
             ))}

@@ -31,7 +31,7 @@ export async function TagList({ tag, page }: { tag: string; page: number }) {
 
   return (
     <ListShell categories={categories} tags={tags} total={all.length} activeTag={tag}>
-      <header className="border-b border-line pb-6">
+      <header className="rise border-b border-line pb-6">
         <h1 className="text-2xl font-bold tracking-tight">#{tag}</h1>
         {/* 개수는 이 페이지가 아니라 태그 전체 기준 */}
         <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>
@@ -43,7 +43,7 @@ export async function TagList({ tag, page }: { tag: string; page: number }) {
         </p>
       ) : (
         <>
-          <div className="mt-8">
+          <div className="stagger mt-8">
             {paged.items.map((p) => (
               <PostCard key={p.id} post={p} category={byslug.get(p.category)} />
             ))}

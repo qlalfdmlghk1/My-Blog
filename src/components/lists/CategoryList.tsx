@@ -45,7 +45,7 @@ export async function CategoryList({ slug, page }: { slug: string; page: number 
       total={all.length}
       activeCategory={category.slug}
     >
-      <header className="border-b border-line pb-6">
+      <header className="rise border-b border-line pb-6">
         {/* 사이드바 트리와 같은 색 점을 제목에도 단다 — 어느 분류를 보고 있는지
             목록 위쪽에서 바로 읽히고, 색이 등장하는 자리가 분류로 일관된다. */}
         <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
@@ -69,7 +69,7 @@ export async function CategoryList({ slug, page }: { slug: string; page: number 
         </p>
       ) : (
         <>
-          <div className="mt-8">
+          <div className="stagger mt-8">
             {paged.items.map((p) => (
               <PostCard key={p.id} post={p} category={category} />
             ))}

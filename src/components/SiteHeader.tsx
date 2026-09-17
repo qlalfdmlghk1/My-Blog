@@ -7,9 +7,9 @@ import { SITE } from '@/lib/site';
  * 상단 고정 헤더.
  *
  * sticky 라 아래 콘텐츠가 헤더 뒤로 지나간다. 그래서 배경을 반투명 + blur 로 두고,
- * 헤더 높이(3.5rem)만큼을 sticky 사이드바 top 과 제목 scroll-margin 에 반영해 뒀다.
- * (SiteSidebar · PostToc 의 top-20, globals.css 의 scroll-margin-top)
- * 헤더 높이를 바꾸면 그 세 곳도 함께 바꿔야 한다.
+ * 헤더 높이(3.5rem)만큼을 sticky 목차 top 과 제목 scroll-margin 에 반영해 뒀다.
+ * (PostToc 의 top-20, globals.css 의 scroll-margin-top)
+ * 헤더 높이를 바꾸면 그 두 곳도 함께 바꿔야 한다.
  */
 export function SiteHeader() {
   /*
@@ -28,9 +28,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-bg supports-[backdrop-filter]:bg-bg/75 supports-[backdrop-filter]:backdrop-blur-xl">
       {/* 헤더 내비를 건너뛰고 본문으로 바로 가는 표준 링크.
-          넓은 화면에서 사이드바가 왼쪽에 보이면서 DOM 상으로는 본문 뒤에 오는
-          순서 불일치는 이 링크로 해결되지 않는다 — 도착지가 본문이라 분류에
-          닿으려면 여전히 글 목록을 지나야 한다. 그건 별도 과제로 남긴다. */}
+          목록 화면의 분류 탭은 본문(#main) 맨 위에 있어 건너뛴 직후 바로 닿는다. */}
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-semibold"

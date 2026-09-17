@@ -360,7 +360,7 @@ export default function AdminCategoriesPage() {
               <Field
                 htmlFor="c-hint"
                 label="한 줄 설명"
-                hint="사이드바 툴팁과 카테고리 페이지 부제에 쓰입니다"
+                hint="분류 탭 툴팁과 카테고리 페이지 부제에 쓰입니다"
               >
                 <input
                   id="c-hint"
@@ -374,7 +374,7 @@ export default function AdminCategoriesPage() {
               <Field
                 htmlFor="c-order"
                 label="정렬 순서"
-                hint="작을수록 사이드바 위쪽. 같으면 이름 가나다순입니다."
+                hint="작을수록 분류 탭에서 앞쪽. 같으면 이름 가나다순입니다."
               >
                 <input
                   id="c-order"

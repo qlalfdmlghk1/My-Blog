@@ -3,23 +3,18 @@ import { notFound } from 'next/navigation';
 import { ListShell } from '@/components/ListShell';
 import { Pagination } from '@/components/Pagination';
 import { PostCard } from '@/components/PostCard';
+import { SubcategoryChips } from '@/components/SubcategoryChips';
 import { readCategories } from '@/lib/categories.server';
 import { paginate } from '@/lib/pagination';
-import {
-  getAllTags,
-  getCategoryTree,
-  getPostsByCategory,
-  readPublishedPosts,
-} from '@/lib/posts';
+import { getCategoryTree, getPostsByCategory, readPublishedPosts } from '@/lib/posts';
 
 /** 카테고리 목록의 본문 — `/categories/[slug]` 와 그 `/page/[page]` 가 함께 쓴다 */
 export async function CategoryList({ slug, page }: { slug: string; page: number }) {
   // 목록을 한 번 읽어 집계·필터에 함께 쓴다 (posts 조회 1회).
   const { posts: all, degraded: postsDegraded } = await readPublishedPosts();
   const { categories: known, degraded } = await readCategories();
-  const [categories, tags, posts] = await Promise.all([
+  const [categories, posts] = await Promise.all([
     getCategoryTree(all, known),
-    getAllTags(all),
     getPostsByCategory(slug, all),
   ]);
 
@@ -39,16 +34,11 @@ export async function CategoryList({ slug, page }: { slug: string; page: number 
   }
 
   return (
-    <ListShell
-      categories={categories}
-      tags={tags}
-      total={all.length}
-      activeCategory={category.slug}
-    >
-      <header className="rise border-b border-line pb-6">
-        {/* 사이드바 트리와 같은 색 점을 제목에도 단다 — 어느 분류를 보고 있는지
+    <ListShell categories={categories} activeCategory={category.slug}>
+      <header className="rise mt-8 border-b border-line pb-6 sm:mt-10">
+        {/* 분류 탭과 같은 색 점을 제목에도 단다 — 어느 분류를 보고 있는지
             목록 위쪽에서 바로 읽히고, 색이 등장하는 자리가 분류로 일관된다. */}
-        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-[28px]">
           <span
             aria-hidden
             className="size-2.5 shrink-0 rounded-full"
@@ -61,6 +51,7 @@ export async function CategoryList({ slug, page }: { slug: string; page: number 
           {category.hint ? `${category.hint} · ` : ''}
           {posts.length}개
         </p>
+        <SubcategoryChips category={category} />
       </header>
 
       {posts.length === 0 ? (

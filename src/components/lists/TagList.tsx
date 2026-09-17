@@ -4,19 +4,13 @@ import { ListShell } from '@/components/ListShell';
 import { Pagination } from '@/components/Pagination';
 import { PostCard } from '@/components/PostCard';
 import { paginate } from '@/lib/pagination';
-import {
-  filterPostsByTag,
-  getAllTags,
-  getCategoryTree,
-  readPublishedPosts,
-} from '@/lib/posts';
+import { filterPostsByTag, getCategoryTree, readPublishedPosts } from '@/lib/posts';
 
 /** 태그 목록의 본문 — `/tags/[tag]` 와 그 `/page/[page]` 가 함께 쓴다 */
 export async function TagList({ tag, page }: { tag: string; page: number }) {
-  // 목록·사이드바 집계가 같은 목록을 보게 한다 — 출처가 갈리면 사이드바에는
-  // "#태그 3", 본문에는 "0개"가 동시에 뜨는 상태가 생긴다. (Firestore 조회 1회)
+  // 분류 탭 · 배지가 쓸 트리를 같은 목록에서 집계한다 (Firestore 조회 1회)
   const { posts: all, degraded } = await readPublishedPosts();
-  const [categories, tags] = await Promise.all([getCategoryTree(all), getAllTags(all)]);
+  const categories = await getCategoryTree(all);
   const byslug = new Map(categories.map((c) => [c.slug, c]));
   const posts = filterPostsByTag(all, tag);
 
@@ -30,9 +24,9 @@ export async function TagList({ tag, page }: { tag: string; page: number }) {
   }
 
   return (
-    <ListShell categories={categories} tags={tags} total={all.length} activeTag={tag}>
-      <header className="rise border-b border-line pb-6">
-        <h1 className="text-2xl font-bold tracking-tight">#{tag}</h1>
+    <ListShell categories={categories}>
+      <header className="rise mt-8 border-b border-line pb-6 sm:mt-10">
+        <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">#{tag}</h1>
         {/* 개수는 이 페이지가 아니라 태그 전체 기준 */}
         <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>
       </header>

@@ -3,6 +3,50 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════
+   티머니 둥근바람 — CDN 이 주는 CSS 를 쓰지 않고 여기서 직접 선언한다.
+
+   Regular 파일의 hhea 테이블이 깨져 있다 (ascent 984 · descent -800, ExtraBold 는 -258).
+   Windows Chrome 은 OS/2 win 메트릭(1025 / 276)을 읽어 멀쩡하지만, Android · macOS 는
+   hhea 를 읽는다. 그러면 글자 아래에 위와 맞먹는 공간이 잡혀 줄 상자 안에서 글리프가
+   위로 밀린다 — 모바일에서 탭 · 배지 · 입력창의 글자가 위에 붙어 보이던 원인이다.
+   굵은 제목만 멀쩡했던 것은 ExtraBold 의 hhea 가 정상이기 때문이다.
+
+   override 값은 Windows 가 지금 쓰는 win 메트릭 그대로다. 데스크톱 렌더링은 바뀌지 않고
+   다른 플랫폼이 거기에 맞춰진다. line-gap 은 0 으로 둔다 — 이 프로젝트는 줄 높이를
+   전부 명시하므로 `normal` 에서만 의미가 있고, 그때 값이 예측 가능한 편이 낫다.
+
+   src 는 fonts-archive 의 원본 URL 그대로다 (layout.tsx 의 preload 와 같은 파일).
+   ═══════════════════════════════════════════════ */
+@font-face {
+  font-family: 'Tmoney Round Wind';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 102.5%;
+  descent-override: 27.6%;
+  line-gap-override: 0%;
+  src:
+    url('https://cdn.jsdelivr.net/gh/fonts-archive/TmoneyRoundWind/TmoneyRoundWindRegular.woff2')
+      format('woff2'),
+    url('https://cdn.jsdelivr.net/gh/fonts-archive/TmoneyRoundWind/TmoneyRoundWindRegular.woff')
+      format('woff');
+}
+@font-face {
+  font-family: 'Tmoney Round Wind';
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  ascent-override: 102.5%;
+  descent-override: 27.6%;
+  line-gap-override: 0%;
+  src:
+    url('https://cdn.jsdelivr.net/gh/fonts-archive/TmoneyRoundWind/TmoneyRoundWindExtraBold.woff2')
+      format('woff2'),
+    url('https://cdn.jsdelivr.net/gh/fonts-archive/TmoneyRoundWind/TmoneyRoundWindExtraBold.woff')
+      format('woff');
+}
+
+/* ═══════════════════════════════════════════════
    무채색 스케일 — 화면의 90%를 담당한다.
 
    회색을 보라 쪽(OKLCH H≈295)으로 아주 옅게 물들인다. 처음에는 따뜻한 회색(H≈40~50)

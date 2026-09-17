@@ -51,7 +51,7 @@ const config: Config = {
         ],
         mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
       },
-      // shell 은 사이드바가 붙은 목록 화면, prose 는 글 본문 한 줄 길이
+      // shell 은 목록 화면(분류 탭 + 카드) 폭, prose 는 글 본문 한 줄 길이
       maxWidth: { prose: '44rem', shell: '76rem' },
     },
   },

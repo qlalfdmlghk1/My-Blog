@@ -24,6 +24,15 @@ const DEFAULT_MODEL = 'gemini-2.5-flash';
  */
 const TIMEOUT_MS = 25_000;
 
+/**
+ * 이미지 생성 기본 모델. 텍스트 모델과 따로 둔다 — 같은 env 로 묶으면 텍스트 모델을
+ * 바꿀 때 이미지 생성이 함께 깨진다. 값은 GEMINI_IMAGE_MODEL 로 덮어쓴다.
+ */
+const DEFAULT_IMAGE_MODEL = 'gemini-2.5-flash-image';
+
+/** 이미지는 텍스트보다 오래 걸린다 — 라우트 상한(60초) 아래에서 우리가 먼저 끊는다 */
+const IMAGE_TIMEOUT_MS = 50_000;
+
 export type GeminiResult<T> =
   | { ok: true; data: T }
   /** 그대로 응답에 실어 보낼 수 있는 형태 — 호출부가 문구를 다시 짓지 않는다 */
@@ -137,4 +146,103 @@ export async function generateJson<T>(
       error: '응답을 해석하지 못했습니다. 입력을 줄이고 다시 시도하세요.',
     };
   }
+}
+
+interface InteractionImagePart {
+  type?: string;
+  data?: string;
+  mime_type?: string;
+}
+interface InteractionResponse {
+  steps?: { type?: string; content?: InteractionImagePart[] }[];
+  errors?: { message?: string }[];
+  error?: { message?: string };
+}
+
+export interface GeneratedImage {
+  bytes: Buffer;
+  mimeType: string;
+}
+
+/**
+ * 프롬프트 하나로 이미지 한 장을 받는다 (글 커버 생성).
+ *
+ * `generateJson` 과 엔드포인트가 다르다 — 이미지 모델은 `interactions` API 로만 열려
+ * 있고, 응답도 candidates 가 아니라 steps 로 온다. 그래서 같은 함수에 분기를 넣지 않고
+ * 따로 둔다. 키 전달 방식·타임아웃·실패 문구의 판단은 위와 같다.
+ *
+ * 결과는 base64 를 풀어 바이트로 돌려준다 — 호출부(라우트)가 Blob 에 올릴 때 그대로
+ * 쓰기 위해서다. 브라우저로 base64 를 내려보내면 1~2MB 문자열이 JSON 에 실리고,
+ * 어차피 저장은 서버가 해야 한다.
+ */
+export async function generateImage(
+  prompt: string,
+  aspectRatio: '16:9' | '1:1' | '4:3' = '16:9',
+): Promise<GeminiResult<GeneratedImage>> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'GEMINI_API_KEY 가 서버에 없습니다. 환경변수를 설정하세요.',
+    };
+  }
+
+  const model = process.env.GEMINI_IMAGE_MODEL || DEFAULT_IMAGE_MODEL;
+
+  let res: Response;
+  try {
+    res = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        model,
+        input: [{ type: 'text', text: prompt }],
+        // 1K 면 목록 썸네일(224px)과 히어로(최대 ~700px)에 충분하다. 2K 는 파일만 커진다.
+        response_format: {
+          type: 'image',
+          mime_type: 'image/jpeg',
+          aspect_ratio: aspectRatio,
+          image_size: '1K',
+        },
+      }),
+      signal: AbortSignal.timeout(IMAGE_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      return { ok: false, status: 504, error: '이미지 생성이 너무 오래 걸려 중단했습니다. 다시 시도하세요.' };
+    }
+    return { ok: false, status: 502, error: 'Gemini 에 연결하지 못했습니다. 네트워크를 확인하세요.' };
+  }
+
+  let payload: InteractionResponse | null = null;
+  try {
+    payload = (await res.json()) as InteractionResponse;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') {
+      return { ok: false, status: 504, error: '이미지 생성이 너무 오래 걸려 중단했습니다. 다시 시도하세요.' };
+    }
+  }
+
+  if (!res.ok) {
+    if (res.status === 429) {
+      return { ok: false, status: 429, error: 'Gemini 호출 한도를 넘었습니다. 잠시 뒤 다시 시도하세요.' };
+    }
+    const detail = payload?.error?.message ?? payload?.errors?.[0]?.message ?? `상태 ${res.status}`;
+    return { ok: false, status: 502, error: `이미지 생성이 실패했습니다 — ${detail}` };
+  }
+
+  const image = payload?.steps
+    ?.filter((step) => step.type === 'model_output')
+    .flatMap((step) => step.content ?? [])
+    .find((part) => part.type === 'image' && typeof part.data === 'string' && part.data);
+  if (!image?.data) {
+    // 안전 필터에 걸리면 200 인데 이미지가 없다 — 프롬프트를 바꿔 다시 부르게 안내한다
+    return { ok: false, status: 502, error: '모델이 이미지를 돌려주지 않았습니다. 다시 생성해 보세요.' };
+  }
+
+  return {
+    ok: true,
+    data: { bytes: Buffer.from(image.data, 'base64'), mimeType: image.mime_type || 'image/jpeg' },
+  };
 }

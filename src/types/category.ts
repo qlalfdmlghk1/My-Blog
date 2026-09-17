@@ -14,10 +14,10 @@ export interface Category {
   /** 문서 ID = URL 조각. `/categories/{slug}` */
   slug: string;
   name: string;
-  /** 사이드바 툴팁과 카테고리 페이지 부제에 쓰이는 한 줄 설명 */
+  /** 분류 탭 툴팁과 카테고리 페이지 부제에 쓰이는 한 줄 설명 */
   hint: string;
   palette: PaletteId;
-  /** 사이드바 정렬 순서 — 작을수록 위 */
+  /** 분류 탭 정렬 순서 — 작을수록 앞 */
   order: number;
 }
 

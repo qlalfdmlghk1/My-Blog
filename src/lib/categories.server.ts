@@ -2,6 +2,7 @@ import 'server-only';
 
 import { normalizeCategory, normalizeSubcategory, sortCategories, sortSubcategories } from '@/lib/categories';
 import { adminDb, hasAdminCredentials } from '@/lib/firebase/admin';
+import { MOCK_CATEGORIES, MOCK_SUBCATEGORIES, mockDataEnabled } from '@/lib/mock-data';
 import { warnUnconfigured } from '@/lib/safe-read';
 import type { Category, Subcategory } from '@/types/category';
 
@@ -32,6 +33,8 @@ export async function getCategories(): Promise<Category[]> {
  */
 export async function readCategories(): Promise<{ categories: Category[]; degraded: boolean }> {
   if (!hasAdminCredentials()) {
+    // 개발 중 자격 증명이 없으면 목 데이터 — 조건은 mock-data.ts 의 주석 참조
+    if (mockDataEnabled()) return { categories: sortCategories(MOCK_CATEGORIES), degraded: false };
     warnUnconfigured('getCategories');
     return { categories: [], degraded: true };
   }
@@ -70,6 +73,7 @@ export const SUB_COLLECTION = 'subcategories';
  */
 export async function getSubcategories(): Promise<Subcategory[]> {
   if (!hasAdminCredentials()) {
+    if (mockDataEnabled()) return sortSubcategories(MOCK_SUBCATEGORIES);
     warnUnconfigured('getSubcategories');
     return [];
   }

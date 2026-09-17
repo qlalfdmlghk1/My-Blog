@@ -42,6 +42,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           Pretendard 는 폴백으로 남긴다 — 동적 서브셋이라 둥근바람이 덮는 글자에는
           요청이 나가지 않고, 빠진 글자가 있을 때만 내려온다.
+
+          둥근바람의 @font-face 는 CDN CSS 가 아니라 globals.css 에 직접 있다 —
+          Regular 의 세로 메트릭이 깨져 있어 override 가 필요하다 (그쪽 주석 참조).
         */}
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         <link
@@ -50,10 +53,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="font/woff2"
           crossOrigin="anonymous"
           href="https://cdn.jsdelivr.net/gh/fonts-archive/TmoneyRoundWind/TmoneyRoundWindRegular.woff2"
-        />
-        <link
-          rel="stylesheet"
-          href="https://cdn.jsdelivr.net/gh/fonts-archive/TmoneyRoundWind/TmoneyRoundWind.css"
         />
         <link
           rel="stylesheet"

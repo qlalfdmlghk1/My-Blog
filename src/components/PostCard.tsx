@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
+import { CoverImage } from '@/components/CoverImage';
 import { TagChip } from '@/components/TagChip';
 import { formatDate } from '@/lib/date';
 import type { Category } from '@/types/category';
@@ -36,41 +37,54 @@ export function PostCard({
         좌우로는 글 폭 밖까지 넓힌다(-mx). 좁은 화면에서는 바깥 여백이 20px 뿐이라
         16px 을 다 쓰면 화면 끝에 닿아 잘린 것처럼 보이므로 한 단계 줄여 둔다.
       */}
-      <div className="-mx-3 rounded-xl px-3 py-4 transition-[background-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transform-none motion-reduce:transition-none sm:-mx-4 sm:px-4">
-        <div className="mb-2.5 flex items-center gap-2.5">
-          <CategoryBadge slug={post.category} category={category} size="sm" />
-          <time
-            dateTime={post.publishedAt ?? undefined}
-            className="text-xs text-ink-dim tabular-nums"
-          >
-            {formatDate(post.publishedAt)}
-          </time>
+      <div className="-mx-3 flex items-start gap-4 rounded-xl px-3 py-4 transition-[background-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transform-none motion-reduce:transition-none sm:-mx-4 sm:gap-8 sm:px-4">
+        {/* 글자 쪽이 남는 폭을 다 갖는다. min-w-0 이 없으면 긴 제목이 줄바꿈하지 않고
+            커버를 판 밖으로 밀어낸다. */}
+        <div className="min-w-0 flex-1">
+          <div className="mb-2.5 flex items-center gap-2.5">
+            <CategoryBadge slug={post.category} category={category} size="sm" />
+            <time
+              dateTime={post.publishedAt ?? undefined}
+              className="text-xs text-ink-dim tabular-nums"
+            >
+              {formatDate(post.publishedAt)}
+            </time>
+          </div>
+
+          <h2 className="break-keep text-[19px] font-bold leading-snug tracking-tight sm:text-xl">
+            {/* 가로 폭은 판과 정확히 맞춘다 — 색은 깔리는데 눌리지는 않는 띠가 생기지 않게 */}
+            <Link
+              href={`/posts/${post.slug}`}
+              className="after:absolute after:-inset-x-3 after:inset-y-0 after:content-[''] sm:after:-inset-x-4"
+            >
+              {post.title}
+            </Link>
+          </h2>
+
+          {post.excerpt && (
+            <p className="mt-2 line-clamp-2 break-keep text-sm leading-relaxed text-ink-dim">
+              {post.excerpt}
+            </p>
+          )}
+
+          {/* 태그는 각자 다른 곳으로 가는 링크다 — 늘어난 제목 링크에 덮이지 않게 위로 올린다 */}
+          {post.tags.length > 0 && (
+            <div className="relative z-10 mt-3 flex flex-wrap gap-1.5">
+              {post.tags.map((t) => (
+                <TagChip key={t} tag={t} href={`/tags/${encodeURIComponent(t)}`} />
+              ))}
+            </div>
+          )}
         </div>
 
-        <h2 className="text-[19px] font-bold leading-snug tracking-tight sm:text-xl">
-          {/* 가로 폭은 판과 정확히 맞춘다 — 색은 깔리는데 눌리지는 않는 띠가 생기지 않게 */}
-          <Link
-            href={`/posts/${post.slug}`}
-            className="after:absolute after:-inset-x-3 after:inset-y-0 after:content-[''] sm:after:-inset-x-4"
-          >
-            {post.title}
-          </Link>
-        </h2>
-
-        {post.excerpt && (
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-ink-dim">
-            {post.excerpt}
-          </p>
-        )}
-
-        {/* 태그는 각자 다른 곳으로 가는 링크다 — 늘어난 제목 링크에 덮이지 않게 위로 올린다 */}
-        {post.tags.length > 0 && (
-          <div className="relative z-10 mt-3 flex flex-wrap gap-1.5">
-            {post.tags.map((t) => (
-              <TagChip key={t} tag={t} href={`/tags/${encodeURIComponent(t)}`} />
-            ))}
-          </div>
-        )}
+        {/* 커버는 오른쪽 고정 폭. 좁은 화면에서는 정사각형으로 줄여 글자 폭을 지킨다 —
+            가로로 긴 판을 그대로 두면 제목이 한 글자씩 떨어진다. */}
+        <CoverImage
+          src={post.coverImage}
+          seed={post.slug}
+          category={category}
+          className="w-24 shrink-0 rounded-lg aspect-square sm:aspect-[16/9] sm:w-56 sm:rounded-xl"
+        />
       </div>
     </article>
   );

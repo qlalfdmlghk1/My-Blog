@@ -4,6 +4,7 @@ import type { Timestamp } from 'firebase-admin/firestore';
 
 import { getCategories, getSubcategories } from '@/lib/categories.server';
 import { adminDb, hasAdminCredentials } from '@/lib/firebase/admin';
+import { MOCK_POSTS, mockDataEnabled } from '@/lib/mock-data';
 import { safeRead, warnUnconfigured } from '@/lib/safe-read';
 import type { Category, Subcategory } from '@/types/category';
 import type { Post, PostSummary } from '@/types/post';
@@ -59,6 +60,8 @@ export async function readPublishedPosts(): Promise<{
   degraded: boolean;
 }> {
   if (!hasAdminCredentials()) {
+    // 개발 중 자격 증명이 없으면 목 데이터 — 조건은 mock-data.ts 의 주석 참조
+    if (mockDataEnabled()) return { posts: MOCK_POSTS.map(strip), degraded: false };
     warnUnconfigured('getPublishedPosts');
     return { posts: [], degraded: true };
   }
@@ -85,6 +88,7 @@ export async function getPublishedPosts(): Promise<PostSummary[]> {
 
 export async function getPostBySlug(slug: string): Promise<Post | null> {
   if (!hasAdminCredentials()) {
+    if (mockDataEnabled()) return MOCK_POSTS.find((p) => p.slug === slug) ?? null;
     warnUnconfigured('getPostBySlug');
     return null;
   }

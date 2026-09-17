@@ -1,50 +1,40 @@
-import { SiteSidebar } from '@/components/SiteSidebar';
-import type { CategoryNode, TagCount } from '@/lib/posts';
+import { CategoryNav } from '@/components/CategoryNav';
+import type { CategoryNode } from '@/lib/posts';
 
 /**
- * 목록 화면(홈 · 카테고리 · 소분류 · 태그)의 공통 골격 — 좌측 분류 내비 + 본문 2단.
+ * 목록 화면(홈 · 카테고리 · 소분류 · 태그)의 공통 골격 — 분류 탭 한 줄 + 본문 한 칸.
  *
- * 네 화면이 같은 사이드바를 쓰므로 한곳에 모은다. 라우트마다 따로 조립하면
- * 카테고리를 하나 늘릴 때 고칠 곳이 네 군데가 된다.
+ * 네 화면이 같은 탭을 쓰므로 한곳에 모은다. 라우트마다 따로 조립하면 카테고리를 하나
+ * 늘릴 때 고칠 곳이 네 군데가 된다.
  *
- * 좁은 화면에서는 한 칸으로 접히고 사이드바가 글 목록 **아래**로 간다 —
- * 분류 6줄과 태그 무더기를 지나야 첫 글이 나오면 목록 화면 구실을 못 한다.
- * 사이드바 폭(13.5rem)을 좁은 화면에서 유지하지 않는 이유도 같다.
+ * ── 좌측 사이드바를 걷어냈다 ──
+ * 한동안 이 골격은 좌측에 분류 트리 + 태그 무더기를 붙인 2단이었다. 홈에서 먼저
+ * 걷어내고 나니 카테고리를 누르는 순간 골격이 바뀌어, 같은 사이트의 두 화면이 아니라
+ * 다른 사이트로 넘어간 것처럼 보였다. 그래서 전부 한 칸으로 맞췄다.
+ *  - 대분류: 위쪽 탭이 맡는다 (어느 화면에서든 같은 자리).
+ *  - 소분류: 카테고리 화면 제목 아래 칩 한 줄 (SubcategoryChips).
+ *  - 태그: 따로 나열하지 않는다. 글 카드의 칩과 `/tags/…` 화면만 남는다.
+ * 트리의 "전체 N편 · 분류별 N편" 숫자는 사라진다 — 첫 화면에서 글보다 먼저 눈에 들어올
+ * 만큼 중요한 숫자가 아니었고, 카테고리 화면 부제가 그 분류의 수는 여전히 보여준다.
+ *
+ * h1 은 여기 두지 않는다 — 카테고리 · 태그 화면은 자기 이름이 h1 이고, 홈은 히어로
+ * 제목이 넘길 때마다 바뀌어 h1 을 맡길 수 없어 사이트 이름을 숨긴 h1 으로 둔다.
+ * 어느 쪽이든 children 이 정한다.
  */
 export function ListShell({
   categories,
-  tags,
-  total,
   activeCategory,
-  activeSubcategory,
-  activeTag,
   children,
 }: {
   categories: CategoryNode[];
-  /** 태그는 계층 밖의 가로축이라 트리와 분리해 받는다 */
-  tags: TagCount[];
-  /** 발행된 글 전체 수 — 사이드바의 "전체" 줄에 쓰인다 */
-  total: number;
+  /** 탭에서 강조할 대분류 slug. 없으면 "전체" */
   activeCategory?: string;
-  activeSubcategory?: string;
-  activeTag?: string;
   children: React.ReactNode;
 }) {
   return (
-    // 본문을 DOM 에서 먼저 둔다 — 사이드바의 h2 가 본문 h1 보다 앞서면 제목 순서가
-    // 역전돼 접근성 검사에 걸린다. 좌측 배치는 order 로만 되돌린다.
-    <div className="mx-auto grid max-w-shell gap-8 px-5 py-10 lg:grid-cols-[13.5rem_minmax(0,1fr)] lg:gap-12">
-      <main id="main" className="min-w-0 lg:order-2">
-        {children}
-      </main>
-      <SiteSidebar
-        categories={categories}
-        tags={tags}
-        total={total}
-        activeCategory={activeCategory}
-        activeSubcategory={activeSubcategory}
-        activeTag={activeTag}
-      />
-    </div>
+    <main id="main" className="mx-auto max-w-shell px-5 py-6 sm:py-8">
+      <CategoryNav categories={categories} active={activeCategory} />
+      {children}
+    </main>
   );
 }

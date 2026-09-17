@@ -86,3 +86,23 @@
 - 리뷰 "지금 처리" 6건 반영 (`title` 상한 · 인증 가드 순서 · `toDraft()` · catch 로깅 · webkit 스크롤바 · 루트 폰트 자산)
 - `next` `<15.5.24` Critical 취약점 업그레이드 시점 결정
 - `globals.css` `scrollbar-gutter: stable` (커밋 도중 추가된 변경) 별도 커밋
+
+### Commit — 2026-09-17 17:10
+
+- Message: `Fix: 스크롤바 유무에 따라 본문 폭이 흔들리는 문제 수정`
+- Issue: 없음
+- Jira: 미사용
+
+**변경 요약**
+
+- `globals.css` `html` 에 `scrollbar-gutter: stable` 추가 — 스크롤바가 없을 때도 자리를 확보해 뷰포트 폭이 바뀌지 않게 함
+- 증상 · 원인 · 대가는 `troubleshoot.md` 에 기록
+
+**결정 로그**
+
+- `overflow-y: scroll` 대신 `scrollbar-gutter: stable` — 스크롤할 것이 없을 때 비활성 스크롤바가 그려지는 쪽이 더 어색함
+
+**다음 작업**
+
+- 리뷰 "지금 처리" 6건 반영 (`title` 상한 · 인증 가드 순서 · `toDraft()` · catch 로깅 · webkit 스크롤바 · 루트 폰트 자산)
+- `next` `<15.5.24` Critical 취약점 업그레이드 시점 결정

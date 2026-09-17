@@ -60,4 +60,29 @@
 
 **다음 작업**
 
-- Feat 커밋(AI 커버 생성) 이어서 진행
+- Feat 커밋(AI 커버 생성) 이어서 진행 (완료)
+
+### Commit — 2026-09-17 16:45
+
+- Message: `Feat: 발행 확인 화면에 Gemini 커버 이미지 생성 추가`
+- Issue: 없음
+- Jira: 미사용
+
+**변경 요약**
+
+- `/api/cover/generate` 라우트 신규 — Bearer ID 토큰 `verifyIdToken(token, true)` + admin 클레임 검증 → `generateImage` → Vercel Blob `put` (public, `addRandomSuffix`)
+- `gemini.server.ts` 에 `generateImage()` 추가 (API 키는 헤더, `AbortSignal.timeout`)
+- `cover-prompt.ts`(팔레트별 프롬프트, `Record<PaletteId, string>`)·`cover.client.ts`(브라우저 호출, 토큰 미저장) 신규
+- `PublishReview.tsx` — 커버 생성·제거 버튼, 생성 즉시 `saveCover` 로 Firestore 저장, 발행 시 커버 없으면 자동 생성하되 실패는 `coverWarning` 으로 분리
+- `.env.example` 에 `GEMINI_IMAGE_MODEL` 추가
+
+**결정 로그**
+
+- 커버 생성 실패는 발행 실패로 만들지 않는다 — 도형 커버로 발행하고 경고만 남김
+- 서버 시크릿(Gemini 키·Blob 토큰·Admin 키)은 `route.ts`·`gemini.server.ts` 에만 두고 `cover.client.ts` 는 ID 토큰만 실어 보냄
+
+**다음 작업**
+
+- 리뷰 "지금 처리" 6건 반영 (`title` 상한 · 인증 가드 순서 · `toDraft()` · catch 로깅 · webkit 스크롤바 · 루트 폰트 자산)
+- `next` `<15.5.24` Critical 취약점 업그레이드 시점 결정
+- `globals.css` `scrollbar-gutter: stable` (커밋 도중 추가된 변경) 별도 커밋

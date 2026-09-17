@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { TagChip } from '@/components/TagChip';
-import { StatusPill, btnPrimary, btnSecondary } from '@/components/admin/ui';
+import { StatusPill, btnPrimary, btnQuiet, btnSecondary } from '@/components/admin/ui';
 import { listCategories } from '@/lib/categories.client';
 import { formatDate } from '@/lib/date';
 import { listAllPosts } from '@/lib/posts.client';
@@ -42,32 +42,48 @@ export default function AdminPage() {
 
   return (
     <div className="mx-auto max-w-shell px-5 py-8 sm:py-10">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight sm:text-2xl">글 관리</h1>
-          <p className="mt-1.5 text-sm text-ink-dim">
-            발행하면 해당 글과 목록 · RSS · sitemap 이 함께 재생성됩니다.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/admin/categories" className={btnSecondary}>
-            카테고리
-          </Link>
-          <Link href="/admin/dictionary" className={btnSecondary}>
-            용어 사전
-          </Link>
-          <Link href="/admin/write" className={btnPrimary}>
-            새 글 쓰기
-          </Link>
-        </div>
-      </div>
+      {/*
+        큰 제목 · 한 줄 설명 · 숫자 한 줄 · 구분선 — 예전 공개 홈 상단 소개(SiteIntro, 지금은
+        히어로 캐러셀로 바뀌어 없다)의 짜임을 그대로 가져왔다.
 
-      {/* 숫자는 목록을 세지 않아도 상태를 알려준다 — 특히 "쓰다 만 글"의 존재 */}
-      <dl className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
-        <Stat label="전체" value={posts?.length} />
-        <Stat label="발행" value={posts ? published.length : undefined} />
-        <Stat label="임시" value={posts ? drafts.length : undefined} />
-      </dl>
+        한동안 숫자를 회색 상자 세 개에 넣어 가로로 늘어놓았는데, 상자마다 든 것이
+        작은 라벨과 숫자 하나뿐이라 넓고 납작한 빈 판 세 장으로 보였다. 그 소개가
+        회색 판을 걷어낸 것과 같은 이유로 여기서도 판을 없애고, 숫자는 설명 아래
+        한 줄로 붙인다. 위계는 배경이 아니라 글자 크기가 만든다.
+
+        오른쪽 동작 세 개도 같은 무게의 테두리 버튼이었다. 카테고리 · 용어 사전은
+        다른 화면으로 가는 길이고 새 글 쓰기만 이 화면의 주요 동작이므로, 앞의 둘은
+        테두리를 벗겨 조용히 두고 주요 버튼 하나만 색을 갖게 한다.
+      */}
+      <header className="border-b border-line pb-7">
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-[28px]">글 관리</h1>
+            <p className="mt-2 text-sm text-ink-dim">
+              발행하면 해당 글과 목록 · RSS · sitemap 이 함께 재생성됩니다.
+            </p>
+          </div>
+          <nav aria-label="관리 메뉴" className="flex items-center gap-1">
+            <Link href="/admin/categories" className={btnQuiet}>
+              카테고리
+            </Link>
+            <Link href="/admin/dictionary" className={btnQuiet}>
+              용어 사전
+            </Link>
+            <Link href="/admin/write" className={`${btnPrimary} ml-2`}>
+              새 글 쓰기
+            </Link>
+          </nav>
+        </div>
+
+        {/* 숫자는 목록을 세지 않아도 상태를 알려준다 — 특히 "쓰다 만 글"의 존재.
+            공개 홈과 달리 0 이어도 감추지 않는다. 관리자에게는 "임시 0" 이 정보다. */}
+        <dl className="mt-6 flex flex-wrap items-baseline gap-x-6 gap-y-2 text-xs text-ink-dim">
+          <Stat label="전체" value={posts?.length} />
+          <Stat label="발행" value={posts ? published.length : undefined} />
+          <Stat label="임시" value={posts ? drafts.length : undefined} />
+        </dl>
+      </header>
 
       {error && (
         <p
@@ -123,12 +139,18 @@ function describeCategoryFailure(err: unknown): string {
   return `카테고리를 읽지 못했습니다: ${message}`;
 }
 
+/**
+ * 라벨과 숫자를 한 덩어리로.
+ * 숫자만 본문 색·큰 글자로 올려 시선이 수에 먼저 닿게 한다.
+ * 아직 안 읽었으면(undefined) 자리를 비우지 않고 '–' 를 둔다 — 읽힌 뒤 줄이 튀지 않는다.
+ */
 function Stat({ label, value }: { label: string; value?: number }) {
   return (
-    <div className="rounded-xl border border-line bg-surface px-3.5 py-3 shadow-card">
-      <dt className="text-[11px] font-semibold uppercase tracking-wider text-ink-dim">{label}</dt>
-      <dd className="mt-0.5 text-[22px] font-bold tabular-nums">
-        {value ?? <span className="text-ink-dim">–</span>}
+    <div className="flex items-baseline gap-1.5">
+      <dt>{label}</dt>
+      <dd className="text-base font-bold tabular-nums text-ink">
+        {value ?? <span className="font-normal text-ink-dim">–</span>}
+        {value !== undefined && <span className="ml-0.5 text-xs font-normal text-ink-dim">편</span>}
       </dd>
     </div>
   );

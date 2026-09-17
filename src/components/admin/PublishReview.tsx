@@ -16,6 +16,8 @@ import {
   hintClass,
   labelClass,
 } from '@/components/admin/ui';
+import { CoverImage } from '@/components/CoverImage';
+import { generateCover } from '@/lib/cover.client';
 import { DICTIONARY_LIMITS, dictionaryDraftError, parseAliases } from '@/lib/dictionary';
 import {
   createDictionaryTerm,
@@ -51,6 +53,13 @@ export function PublishReview({ post }: { post: Post }) {
   const [extracted, setExtracted] = useState(false);
   const [registered, setRegistered] = useState(0);
 
+  /**
+   * 커버는 이 화면에서 바뀔 수 있어 props 가 아니라 state 다. 생성 · 제거 즉시
+   * Firestore 에 저장한다 — 이 화면은 "이미 저장돼 있어 이탈해도 잃지 않는다"가
+   * 약속인데, 커버만 발행 버튼까지 메모리에 들고 있으면 그 약속이 깨진다.
+   */
+  const [coverImage, setCoverImage] = useState<string | null>(post.coverImage);
+
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -70,6 +79,55 @@ export function PublishReview({ post }: { post: Post }) {
       cancelled = true;
     };
   }, []);
+
+  /** 커버 URL 만 바꿔 저장한다 — 나머지 필드와 상태는 지금 글 그대로 */
+  async function saveCover(url: string | null) {
+    const draft: PostDraft = {
+      slug: post.slug,
+      title: post.title,
+      content: post.content,
+      excerpt: post.excerpt,
+      category: post.category,
+      subcategory: post.subcategory,
+      tags: post.tags,
+      coverImage: url,
+      status: post.status,
+    };
+    await updatePost(post.id, draft, post.status === 'published');
+    setCoverImage(url);
+  }
+
+  async function makeCover() {
+    setBusy('커버를 그리는 중… (30초쯤 걸립니다)');
+    setError(null);
+    setNotice(null);
+    try {
+      const url = await generateCover({
+        title: post.title,
+        excerpt: post.excerpt,
+        category: post.category,
+        slug: post.slug,
+      });
+      await saveCover(url);
+      setNotice('커버를 생성해 저장했습니다. 마음에 안 들면 다시 생성하세요.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '커버 생성에 실패했습니다.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeCover() {
+    setBusy('커버를 지우는 중…');
+    setError(null);
+    try {
+      await saveCover(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '커버를 지우지 못했습니다.');
+    } finally {
+      setBusy(null);
+    }
+  }
 
   async function extract() {
     setBusy('용어를 뽑는 중…');
@@ -220,8 +278,30 @@ export function PublishReview({ post }: { post: Post }) {
       setError(invalid);
       return;
     }
-    setBusy('발행 중…');
     setError(null);
+    setNotice(null);
+
+    // 커버가 없으면 발행 전에 AI 가 먼저 그린다 — 버튼을 따로 누르지 않아도 된다.
+    // 실패해도 발행은 막지 않는다: 모델 장애 하나가 글을 못 내보내게 하면 안 되고,
+    // 공개 화면은 커버 없는 글을 도형으로 그릴 줄 안다. 대신 실패 사실은 알린다.
+    let cover = coverImage;
+    let coverWarning: string | null = null;
+    if (!cover) {
+      setBusy('커버를 그리는 중… (30초쯤 걸립니다)');
+      try {
+        cover = await generateCover({
+          title: post.title,
+          excerpt: post.excerpt,
+          category: post.category,
+          slug: post.slug,
+        });
+        setCoverImage(cover);
+      } catch (err) {
+        coverWarning = err instanceof Error ? err.message : '커버 생성에 실패했습니다.';
+      }
+    }
+
+    setBusy('발행 중…');
     try {
       const draft: PostDraft = {
         slug: post.slug,
@@ -231,7 +311,7 @@ export function PublishReview({ post }: { post: Post }) {
         category: post.category,
         subcategory: post.subcategory,
         tags: post.tags,
-        coverImage: post.coverImage,
+        coverImage: cover,
         status: 'published',
       };
       await updatePost(post.id, draft, post.status === 'published');
@@ -249,6 +329,14 @@ export function PublishReview({ post }: { post: Post }) {
       setError(
         '발행은 됐지만 정적 페이지 갱신에 실패했습니다. 잠시 뒤 다시 시도하거나 새로고침하세요.',
       );
+      setBusy(null);
+      return;
+    }
+
+    if (coverWarning) {
+      // 발행은 됐다. 화면을 떠나면 이 문구를 못 보므로 여기 남아 알린다 —
+      // 다시 생성하거나 그대로 두는 것은 사람이 정한다.
+      setNotice(`발행했습니다. 커버는 그리지 못해 도형 커버로 나갑니다 — ${coverWarning}`);
       setBusy(null);
       return;
     }
@@ -311,181 +399,230 @@ export function PublishReview({ post }: { post: Post }) {
         )}
 
         <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
-          {/* ── 용어 추출 ── */}
-          <Panel
-            title="용어 사전"
-            hint="본문에서 용어 후보를 뽑아 사전에 등록합니다. 정의는 AI 초안이므로 그대로 두지 말고 한 번 읽어보세요."
-          >
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className={btnSecondary}
-                  disabled={Boolean(busy)}
-                  onClick={() => void extract()}
-                >
-                  {extracted ? '다시 뽑기' : '용어 뽑기'}
-                </button>
-                <Link
-                  href="/admin/dictionary"
-                  target="_blank"
-                  rel="noreferrer"
-                  className={btnQuiet}
-                >
-                  사전 관리 ↗
-                </Link>
-                {registered > 0 && (
-                  <span className="text-xs text-ink-dim">이번에 {registered}개 등록됨</span>
-                )}
-              </div>
-
-              {noCategories && (
-                <p className="rounded-lg border border-line bg-bg px-3.5 py-3 text-xs leading-relaxed text-ink-dim">
-                  용어 분류가 아직 없습니다. 지금 등록하면 &lsquo;분류 없음&rsquo;으로 들어가고,{' '}
-                  <Link href="/admin/dictionary" className="font-semibold text-ink underline">
-                    사전 관리
-                  </Link>
-                  에서 분류를 만든 뒤 지정할 수 있습니다.
-                </p>
-              )}
-
-              {truncated && (
-                <p className={hintClass}>
-                  본문이 길어 앞부분만 보냈습니다. 뒤쪽 용어는 사전 관리에서 직접 넣으세요.
-                </p>
-              )}
-
-              {extracted && candidates.length === 0 && (
-                <p className="rounded-lg border border-line bg-bg px-3.5 py-6 text-center text-xs text-ink-dim">
-                  {skipped.length > 0
-                    ? '새로 등록할 용어가 없습니다 — 뽑힌 낱말이 모두 이미 사전에 있습니다.'
-                    : '뽑힌 용어가 없습니다. 본문이 짧거나 이미 설명이 충분한 글일 수 있습니다.'}
-                </p>
-              )}
-
-              {candidates.length > 0 && (
-                <ul className="space-y-3">
-                  {candidates.map((c) => (
-                    <li key={c.id} className="rounded-lg border border-line bg-bg p-3.5">
-                      <label className="flex items-center gap-2 text-sm font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={c.selected}
-                          onChange={(e) => patch(c.id, { selected: e.target.checked })}
-                        />
-                        등록
-                      </label>
-
-                      <div className="mt-3 space-y-3">
-                        <Field htmlFor={`c-term-${c.id}`} label="표제어">
-                          <input
-                            id={`c-term-${c.id}`}
-                            className={fieldClass}
-                            maxLength={DICTIONARY_LIMITS.term - 1}
-                            value={c.term}
-                            onChange={(e) => onTermChange(c.id, e.target.value)}
-                          />
-                        </Field>
-
-                        <Field
-                          htmlFor={`c-slug-${c.id}`}
-                          label="slug"
-                          hint={`앵커 주소 — /dictionary#${c.slug || '…'} · 영어 원어가 있으면 그것으로 제안됩니다. 만든 뒤에는 바꿀 수 없습니다`}
-                        >
-                          <input
-                            id={`c-slug-${c.id}`}
-                            className={`${fieldClass} font-mono`}
-                            value={c.slug}
-                            onChange={(e) =>
-                              patch(c.id, { slug: e.target.value, slugTouched: true })
-                            }
-                          />
-                        </Field>
-
-                        <Field
-                          htmlFor={`c-def-${c.id}`}
-                          label="정의"
-                          hint={`${c.definition.length} / ${DICTIONARY_LIMITS.definition - 1}자`}
-                        >
-                          <textarea
-                            id={`c-def-${c.id}`}
-                            rows={3}
-                            maxLength={DICTIONARY_LIMITS.definition - 1}
-                            className={fieldClass}
-                            value={c.definition}
-                            onChange={(e) => patch(c.id, { definition: e.target.value })}
-                          />
-                        </Field>
-
-                        <Field
-                          htmlFor={`c-alias-${c.id}`}
-                          label="별칭"
-                          hint={`쉼표로 구분, 최대 ${DICTIONARY_LIMITS.aliases}개`}
-                        >
-                          <input
-                            id={`c-alias-${c.id}`}
-                            className={fieldClass}
-                            value={c.aliasInput}
-                            onChange={(e) => patch(c.id, { aliasInput: e.target.value })}
-                          />
-                        </Field>
-
-                        <Field
-                          htmlFor={`c-cat-${c.id}`}
-                          label="분류"
-                          hint="선택 사항 — 비워 두면 나중에 사전 관리에서 지정할 수 있습니다"
-                        >
-                          <Select
-                            id={`c-cat-${c.id}`}
-                            value={c.category}
-                            onChange={(next) => patch(c.id, { category: next })}
-                          >
-                            <option value="">분류 없음</option>
-                            {(categories ?? []).map((cat) => (
-                              <option key={cat.slug} value={cat.slug}>
-                                {cat.name}
-                              </option>
-                            ))}
-                          </Select>
-                        </Field>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {candidates.length > 0 && (
-                <button
-                  type="button"
-                  className={btnPrimary}
-                  disabled={Boolean(busy) || chosen.length === 0}
-                  onClick={() => void register()}
-                >
-                  선택한 {chosen.length}개 등록
-                </button>
-              )}
-
-              {skipped.length > 0 && (
-                <div>
-                  <p className={labelClass}>이미 사전에 있음</p>
-                  <p className={hintClass}>
-                    기존 정의를 덮어쓰지 않습니다 — 고치려면 사전 관리에서 직접 수정하세요.
-                  </p>
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {skipped.map((s) => (
-                      <li
-                        key={`${s.term}-${s.existing}`}
-                        className="rounded-md border border-line px-2 py-1 text-[11px] text-ink-dim"
+          <div className="space-y-4">
+            {/* ── 커버 ── */}
+            <Panel
+              title="커버"
+              hint="비어 있으면 발행할 때 AI 가 제목 · 요약을 소재로 정해진 화풍(파스텔 바탕의 클레이 오브젝트)으로 자동으로 그립니다. 미리 보고 싶으면 지금 생성하세요."
+            >
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                {/* 공개 화면과 같은 컴포넌트로 보여준다 — 여기서 본 것이 목록에 그대로 나온다.
+                    카테고리 색은 이 화면이 모르므로 커버 없는 상태는 무채색 도형으로 보인다. */}
+                <CoverImage
+                  src={coverImage}
+                  seed={post.slug}
+                  className="aspect-[16/9] w-full shrink-0 rounded-xl sm:w-64"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className={btnSecondary}
+                      disabled={Boolean(busy) || !post.title.trim()}
+                      onClick={() => void makeCover()}
+                    >
+                      {coverImage ? '다시 생성' : '커버 생성'}
+                    </button>
+                    {coverImage && (
+                      <button
+                        type="button"
+                        className={btnQuiet}
+                        disabled={Boolean(busy)}
+                        onClick={() => void removeCover()}
                       >
-                        {s.term}
-                        <span className="ml-1.5 font-mono opacity-70">{s.existing}</span>
+                        커버 제거
+                      </button>
+                    )}
+                  </div>
+                  {coverImage ? (
+                    <p className="mt-3 break-all font-mono text-[11px] leading-relaxed text-ink-dim">
+                      {coverImage}
+                    </p>
+                  ) : (
+                    <p className={hintClass}>
+                      직접 고른 사진을 쓰려면 편집 화면의 커버 이미지 패널에서 올리세요.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Panel>
+
+            {/* ── 용어 추출 ── */}
+            <Panel
+              title="용어 사전"
+              hint="본문에서 용어 후보를 뽑아 사전에 등록합니다. 정의는 AI 초안이므로 그대로 두지 말고 한 번 읽어보세요."
+            >
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className={btnSecondary}
+                    disabled={Boolean(busy)}
+                    onClick={() => void extract()}
+                  >
+                    {extracted ? '다시 뽑기' : '용어 뽑기'}
+                  </button>
+                  <Link
+                    href="/admin/dictionary"
+                    target="_blank"
+                    rel="noreferrer"
+                    className={btnQuiet}
+                  >
+                    사전 관리 ↗
+                  </Link>
+                  {registered > 0 && (
+                    <span className="text-xs text-ink-dim">이번에 {registered}개 등록됨</span>
+                  )}
+                </div>
+
+                {noCategories && (
+                  <p className="rounded-lg border border-line bg-bg px-3.5 py-3 text-xs leading-relaxed text-ink-dim">
+                    용어 분류가 아직 없습니다. 지금 등록하면 &lsquo;분류 없음&rsquo;으로 들어가고,{' '}
+                    <Link href="/admin/dictionary" className="font-semibold text-ink underline">
+                      사전 관리
+                    </Link>
+                    에서 분류를 만든 뒤 지정할 수 있습니다.
+                  </p>
+                )}
+
+                {truncated && (
+                  <p className={hintClass}>
+                    본문이 길어 앞부분만 보냈습니다. 뒤쪽 용어는 사전 관리에서 직접 넣으세요.
+                  </p>
+                )}
+
+                {extracted && candidates.length === 0 && (
+                  <p className="rounded-lg border border-line bg-bg px-3.5 py-6 text-center text-xs text-ink-dim">
+                    {skipped.length > 0
+                      ? '새로 등록할 용어가 없습니다 — 뽑힌 낱말이 모두 이미 사전에 있습니다.'
+                      : '뽑힌 용어가 없습니다. 본문이 짧거나 이미 설명이 충분한 글일 수 있습니다.'}
+                  </p>
+                )}
+
+                {candidates.length > 0 && (
+                  <ul className="space-y-3">
+                    {candidates.map((c) => (
+                      <li key={c.id} className="rounded-lg border border-line bg-bg p-3.5">
+                        <label className="flex items-center gap-2 text-sm font-semibold">
+                          <input
+                            type="checkbox"
+                            checked={c.selected}
+                            onChange={(e) => patch(c.id, { selected: e.target.checked })}
+                          />
+                          등록
+                        </label>
+
+                        <div className="mt-3 space-y-3">
+                          <Field htmlFor={`c-term-${c.id}`} label="표제어">
+                            <input
+                              id={`c-term-${c.id}`}
+                              className={fieldClass}
+                              maxLength={DICTIONARY_LIMITS.term - 1}
+                              value={c.term}
+                              onChange={(e) => onTermChange(c.id, e.target.value)}
+                            />
+                          </Field>
+
+                          <Field
+                            htmlFor={`c-slug-${c.id}`}
+                            label="slug"
+                            hint={`앵커 주소 — /dictionary#${c.slug || '…'} · 영어 원어가 있으면 그것으로 제안됩니다. 만든 뒤에는 바꿀 수 없습니다`}
+                          >
+                            <input
+                              id={`c-slug-${c.id}`}
+                              className={`${fieldClass} font-mono`}
+                              value={c.slug}
+                              onChange={(e) =>
+                                patch(c.id, { slug: e.target.value, slugTouched: true })
+                              }
+                            />
+                          </Field>
+
+                          <Field
+                            htmlFor={`c-def-${c.id}`}
+                            label="정의"
+                            hint={`${c.definition.length} / ${DICTIONARY_LIMITS.definition - 1}자`}
+                          >
+                            <textarea
+                              id={`c-def-${c.id}`}
+                              rows={3}
+                              maxLength={DICTIONARY_LIMITS.definition - 1}
+                              className={fieldClass}
+                              value={c.definition}
+                              onChange={(e) => patch(c.id, { definition: e.target.value })}
+                            />
+                          </Field>
+
+                          <Field
+                            htmlFor={`c-alias-${c.id}`}
+                            label="별칭"
+                            hint={`쉼표로 구분, 최대 ${DICTIONARY_LIMITS.aliases}개`}
+                          >
+                            <input
+                              id={`c-alias-${c.id}`}
+                              className={fieldClass}
+                              value={c.aliasInput}
+                              onChange={(e) => patch(c.id, { aliasInput: e.target.value })}
+                            />
+                          </Field>
+
+                          <Field
+                            htmlFor={`c-cat-${c.id}`}
+                            label="분류"
+                            hint="선택 사항 — 비워 두면 나중에 사전 관리에서 지정할 수 있습니다"
+                          >
+                            <Select
+                              id={`c-cat-${c.id}`}
+                              value={c.category}
+                              onChange={(next) => patch(c.id, { category: next })}
+                            >
+                              <option value="">분류 없음</option>
+                              {(categories ?? []).map((cat) => (
+                                <option key={cat.slug} value={cat.slug}>
+                                  {cat.name}
+                                </option>
+                              ))}
+                            </Select>
+                          </Field>
+                        </div>
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
-            </div>
-          </Panel>
+                )}
+
+                {candidates.length > 0 && (
+                  <button
+                    type="button"
+                    className={btnPrimary}
+                    disabled={Boolean(busy) || chosen.length === 0}
+                    onClick={() => void register()}
+                  >
+                    선택한 {chosen.length}개 등록
+                  </button>
+                )}
+
+                {skipped.length > 0 && (
+                  <div>
+                    <p className={labelClass}>이미 사전에 있음</p>
+                    <p className={hintClass}>
+                      기존 정의를 덮어쓰지 않습니다 — 고치려면 사전 관리에서 직접 수정하세요.
+                    </p>
+                    <ul className="mt-2 flex flex-wrap gap-1.5">
+                      {skipped.map((s) => (
+                        <li
+                          key={`${s.term}-${s.existing}`}
+                          className="rounded-md border border-line px-2 py-1 text-[11px] text-ink-dim"
+                        >
+                          {s.term}
+                          <span className="ml-1.5 font-mono opacity-70">{s.existing}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </Panel>
+          </div>
 
           {/* ── 본문 확인 ── */}
           <div className="xl:sticky xl:top-[4.75rem]">

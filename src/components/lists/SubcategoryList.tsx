@@ -1,17 +1,12 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
 import { ListShell } from '@/components/ListShell';
 import { Pagination } from '@/components/Pagination';
 import { PostCard } from '@/components/PostCard';
+import { SubcategoryChips } from '@/components/SubcategoryChips';
 import { readCategories } from '@/lib/categories.server';
 import { paginate } from '@/lib/pagination';
-import {
-  filterPostsBySubcategory,
-  getAllTags,
-  getCategoryTree,
-  readPublishedPosts,
-} from '@/lib/posts';
+import { filterPostsBySubcategory, getCategoryTree, readPublishedPosts } from '@/lib/posts';
 
 /** 소분류 목록의 본문 — `/categories/[slug]/[sub]` 와 그 `/page/[page]` 가 함께 쓴다 */
 export async function SubcategoryList({
@@ -25,7 +20,7 @@ export async function SubcategoryList({
 }) {
   const { posts: all, degraded: postsDegraded } = await readPublishedPosts();
   const { categories: known, degraded } = await readCategories();
-  const [tree, tags] = await Promise.all([getCategoryTree(all, known), getAllTags(all)]);
+  const tree = await getCategoryTree(all, known);
 
   const parent = tree.find((c) => c.slug === category);
   const found = parent?.subs.find((s) => s.slug === subcategory);
@@ -52,34 +47,25 @@ export async function SubcategoryList({
   }
 
   return (
-    <ListShell
-      categories={tree}
-      tags={tags}
-      total={all.length}
-      activeCategory={parent.slug}
-      activeSubcategory={found.slug}
-    >
-      <header className="rise border-b border-line pb-6">
-        {/* 소분류만 보면 어느 대분류 소속인지 알 수 없다 — 상위를 함께 보이고 링크한다 */}
-        <nav aria-label="상위 분류" className="mb-1.5 text-xs text-ink-dim">
-          <Link
-            href={`/categories/${encodeURIComponent(parent.slug)}`}
-            className="hover:text-ink hover:underline"
-          >
-            {parent.name}
-          </Link>
-        </nav>
-        {/* 색은 대분류의 것이다 — 소분류는 자기 색을 갖지 않는다(SiteSidebar 와 같은 규칙) */}
-        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight">
+    <ListShell categories={tree} activeCategory={parent.slug}>
+      {/* 카테고리 화면과 같은 머리말이다 — 제목은 "대분류 / 소분류", 칩에서 이 소분류가
+          활성이다. 위 탭에서 대분류가, 칩에서 소분류가 강조되니 소분류 화면은
+          "카테고리 화면을 걸러 본 것"으로 읽히고, 다른 소분류로 가는 길이 바로 보인다.
+          색은 대분류의 것이다 — 소분류는 자기 색을 갖지 않는다. */}
+      <header className="rise mt-8 border-b border-line pb-6 sm:mt-10">
+        <h1 className="flex items-center gap-2.5 text-2xl font-bold tracking-tight sm:text-[28px]">
           <span
             aria-hidden
             className="size-2.5 shrink-0 rounded-full"
             style={{ backgroundColor: `var(--pal-${parent.palette}-fg)` }}
           />
+          <span className="text-ink-dim">{parent.name}</span>
+          <span aria-hidden className="text-ink-dim">/</span>
           {found.name}
         </h1>
         {/* 개수는 이 페이지가 아니라 소분류 전체 기준 */}
         <p className="mt-2 text-sm text-ink-dim">{posts.length}개</p>
+        <SubcategoryChips category={parent} active={found.slug} />
       </header>
 
       {posts.length === 0 ? (

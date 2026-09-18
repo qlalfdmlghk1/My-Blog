@@ -44,3 +44,24 @@
 
 - [ ] GitHub 이슈 수동 생성 후 번호를 plan.md·브랜치명에 반영 (`git branch -m feature/{번호}-loading-ui`)
 - [ ] 브라우저에서 라이트·다크 양쪽 실제 확인 (느린 네트워크로 로딩 화면 노출 · 커서 · 여백 클릭 시 타구 · 버튼 색)
+
+### Commit — 2026-09-18 16:42
+
+- Message: `Feat: 꽃 커서와 나비 클릭 효과를 야구공과 타구로 교체`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `globals.css` `--cursor-flower` → `--cursor-ball`: BaseballIcon 좌표를 0.55 배로 줄인 야구공 커서(채움 + 굵은 선), 라이트·다크 두 벌
+- `ClickBaseball.tsx` 신설, `ClickButterflies.tsx` 삭제: 공 1개가 아래 반원에서 직선으로 들어와 접점에서 위로 꺾여 사라짐(투구·타구). 실밥만 팔레트 색
+- `layout.tsx` 연결 교체, admin/layout · login/page 주석 갱신
+
+**결정 로그**
+
+- 켜지지 않는 조건(동작 최소화·관리 화면·조작 요소 클릭·드래그 직후)은 나비와 동일하게 유지
+- 커서는 항상 보이는 요소라 가장 눈에 띄는 야구 포인트 — 과하면 `--cursor-ball` 두 값만 되돌린다
+
+**다음 작업**
+
+- 버튼 액센트 색 커밋

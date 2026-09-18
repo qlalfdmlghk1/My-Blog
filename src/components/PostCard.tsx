@@ -31,13 +31,13 @@ export function PostCard({
      */
     <article className="group relative border-b border-line py-4 first:pt-0">
       {/*
-        호버·키보드 포커스 시 이 판에 색이 깔리고 그림자가 붙는다 — 눌리는 범위가
-        카드 한 칸임을 보여준다. 배경만으로는 목록이 길어질수록 어느 칸에 올라와 있는지
-        흐려져서, 판이 살짝 떠오르게 두어 지금 겨냥한 칸을 분명히 한다.
+        호버·키보드 포커스에 판은 가만히 있다. 한동안 판에 색을 깔고 그림자를 붙여
+        띄웠는데, 카드 전체가 들썩여 목록이 부산해 보였다. 대신 **제목 글자색이 바뀌고
+        커버가 틀 안에서 커진다** — 움직이는 것은 안쪽 두 요소뿐이고 판의 자리는 그대로다.
         좌우로는 글 폭 밖까지 넓힌다(-mx). 좁은 화면에서는 바깥 여백이 20px 뿐이라
         16px 을 다 쓰면 화면 끝에 닿아 잘린 것처럼 보이므로 한 단계 줄여 둔다.
       */}
-      <div className="-mx-3 flex items-start gap-4 rounded-xl px-3 py-4 transition-[background-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transform-none motion-reduce:transition-none sm:-mx-4 sm:gap-8 sm:px-4">
+      <div className="-mx-3 flex items-start gap-4 rounded-xl px-3 py-4 sm:-mx-4 sm:gap-8 sm:px-4">
         {/* 글자 쪽이 남는 폭을 다 갖는다. min-w-0 이 없으면 긴 제목이 줄바꿈하지 않고
             커버를 판 밖으로 밀어낸다. */}
         <div className="min-w-0 flex-1">
@@ -51,7 +51,7 @@ export function PostCard({
             </time>
           </div>
 
-          <h2 className="break-keep text-[19px] font-bold leading-snug tracking-tight sm:text-xl">
+          <h2 className="break-keep text-[19px] font-bold leading-snug tracking-tight transition-colors duration-200 group-hover:text-accent-text group-focus-within:text-accent-text motion-reduce:transition-none sm:text-xl">
             {/* 가로 폭은 판과 정확히 맞춘다 — 색은 깔리는데 눌리지는 않는 띠가 생기지 않게 */}
             <Link
               href={`/posts/${post.slug}`}
@@ -83,6 +83,7 @@ export function PostCard({
           src={post.coverImage}
           seed={post.slug}
           category={category}
+          zoomOnHover
           className="w-24 shrink-0 rounded-lg aspect-square sm:aspect-[16/9] sm:w-56 sm:rounded-xl"
         />
       </div>

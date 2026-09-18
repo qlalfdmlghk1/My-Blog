@@ -111,3 +111,26 @@
 **다음 작업**
 
 - 없음
+
+### Commit — 2026-09-18 17:40
+
+- Message: `Feat: 글 카드 호버를 판 띄우기에서 제목 색 · 커버 확대로 교체`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `PostCard`: 판의 배경·그림자·translate 호버를 제거하고 제목 글자색만 `--accent-text` 로 바뀜
+- `CoverImage`: `zoomOnHover` prop — 조상 `group` 호버·포커스에 사진·도형 커버가 틀 안에서 5% 확대
+- `HeroCarousel`: `group` + 커버 확대만 적용, 제목 색은 두지 않음
+- `globals.css` · `tailwind.config.ts`: 글자용 액센트 토큰 `--accent-text` (라이트 #2408ab 10.5:1, 다크 #9f8cff)
+
+**결정 로그**
+
+- 판 전체가 들썩이는 호버는 목록이 부산해 보여 폐기. 움직이는 것은 제목 색·커버 두 요소로 한정
+- 확대는 5% — 10% 는 썸네일에서 가장자리가 잘려 "튄다"로 읽힘. 300ms 는 제목 색 전환과 맞춤
+- 버튼 면(`--accent`)은 글자로 쓰기엔 옅고(1.44:1) 버튼 글자(`--accent-fg`)는 다크에서 묻혀 글자 전용 토큰을 분리
+
+**다음 작업**
+
+- 발행 후 안내 이동(admin-notice) 커밋

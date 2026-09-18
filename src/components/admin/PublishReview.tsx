@@ -17,6 +17,7 @@ import {
   labelClass,
 } from '@/components/admin/ui';
 import { CoverImage } from '@/components/CoverImage';
+import { stashAdminNotice } from '@/lib/admin-notice';
 import { generateCover } from '@/lib/cover.client';
 import { DICTIONARY_LIMITS, dictionaryDraftError, parseAliases } from '@/lib/dictionary';
 import {
@@ -334,11 +335,10 @@ export function PublishReview({ post }: { post: Post }) {
     }
 
     if (coverWarning) {
-      // 발행은 됐다. 화면을 떠나면 이 문구를 못 보므로 여기 남아 알린다 —
-      // 다시 생성하거나 그대로 두는 것은 사람이 정한다.
-      setNotice(`발행했습니다. 커버는 그리지 못해 도형 커버로 나갑니다 — ${coverWarning}`);
-      setBusy(null);
-      return;
+      // 발행은 됐다. 예전에는 이 문구를 보이려고 화면에 머물렀는데, 발행이 끝난 뒤에도
+      // 목록으로 안 가는 것이 "안 된 건가" 하는 혼란을 줬다. 안내는 목록 화면이
+      // 대신 띄운다 — 다시 생성하거나 그대로 두는 것은 여전히 사람이 정한다.
+      stashAdminNotice(`발행했습니다. 커버는 그리지 못해 도형 커버로 나갑니다 — ${coverWarning}`);
     }
 
     router.push('/admin');

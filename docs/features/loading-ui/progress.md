@@ -134,3 +134,24 @@
 **다음 작업**
 
 - 발행 후 안내 이동(admin-notice) 커밋
+
+### Commit — 2026-09-18 17:41
+
+- Message: `Feat: 발행 후 커버 실패 안내를 목록 화면에서 띄우도록 이동`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `lib/admin-notice.ts`(신규): `stashAdminNotice` / `takeAdminNotice` — sessionStorage 로 안내 한 줄을 넘기고 읽는 즉시 삭제
+- `PublishReview`: 커버 경고가 있어도 발행 화면에 머물지 않고 `/admin` 으로 이동
+- `admin/page`: 마운트 시 안내를 꺼내 `role="status"` 로 표시
+
+**결정 로그**
+
+- 쿼리스트링 대신 sessionStorage — 주소가 히스토리·북마크에 남아 새로고침마다 같은 안내가 반복되는 것을 피함
+- 저장소가 막힌 환경(시크릿 모드)은 안내만 잃고 발행은 이미 끝난 뒤라 조용히 넘어감
+
+**다음 작업**
+
+- 없음 (loading-ui 브랜치 마무리 → 댓글 기능은 별도 브랜치 `feature/comments`)

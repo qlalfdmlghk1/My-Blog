@@ -34,6 +34,7 @@
 - [2026-09-18] 404 문구의 "파울 라인 밖으로 나갔습니다"는 과하다는 피드백으로 제거. 야구 포인트는 도형(0 → 공)으로만
 - [2026-09-18] (범위 추가) 주요 버튼 액센트 교체. 경로: Figma `Atomic/Secondary` 500/300 진한 보라 → 아님 → 연초록 계열 시도(검정 글자 / 흰 글자 AA 한계 / 토스 밝기 3.4:1) → 후보 4개 이미지 비교로 "아주 연한 면 + 진한 글자" 구조 확정(D) → 같은 구조를 보라로도 그려 **P(Figma Secondary 토큰)** 로 최종 확정. 라이트 면 200 #d7cfff / 글자 700 #2408ab (8.40:1) · 호버 300 (4.52:1, AA 경계). 다크 면 300 #9f8cff / 글자 900 #120067 (6.28:1) · 호버 200. `purple` 슬롯은 원래 값 유지, 형태로 구분
 - [2026-09-18] 커서·클릭 효과도 야구로 교체. 커서는 항상 보이는 요소라 가장 눈에 띄는 야구 포인트 — 과하면 `--cursor-ball` 두 값만 되돌리면 됨(꽃 SVG 는 git 이력에 있음)
+- [2026-09-18 17:00] /review-converge 1라운드 — 수렴 성공. 자동 반영 0건, 남긴 항목 5건. Non-blocker 3건 중 2건 반영(04519ab), 1건 후속 분리. 노트 초안은 review-notes.md (PR 생성 후 코멘트로)
 - [2026-09-18] 검증: lint·typecheck 통과, dev 서버에서 404 HTML 에 SVG·새 문구 렌더 확인, sharp 로 아이콘 래스터 확인
 
 ### 🐛 트러블슈팅
@@ -44,6 +45,10 @@
 
 - [ ] GitHub 이슈 수동 생성 후 번호를 plan.md·브랜치명에 반영 (`git branch -m feature/{번호}-loading-ui`)
 - [ ] 브라우저에서 라이트·다크 양쪽 실제 확인 (느린 네트워크로 로딩 화면 노출 · 커서 · 여백 클릭 시 타구 · 버튼 색)
+- [ ] (리뷰 후속) 야구공 기하 `src/lib/baseball-geometry.ts` 로 추출 — BaseballIcon · ClickBaseball 이 import, 커서 data URI 는 주석으로 정본 표시
+- [ ] (리뷰 후속·판단) 루트 `loading.tsx` 를 `/admin`·`/login` 에서도 쓸지 — 끄려면 `admin/loading.tsx` 별도
+- [ ] (리뷰 후속·별도 PR) `npm audit fix` — next <15.5.24 Critical 2건, postcss High
+- [ ] (리뷰 후속) 라이트 `--accent-hover` 대비 4.52:1 브라우저 실측 · 커서 data URI 색 토큰 주석 · `ballSvg` JSDoc 한 줄
 
 ### Commit — 2026-09-18 16:42
 

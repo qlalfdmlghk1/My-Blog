@@ -25,6 +25,7 @@ export function CoverImage({
   category,
   priority = false,
   className = '',
+  zoomOnHover = false,
 }: {
   src: string | null;
   /** 도형 배치를 정하는 값 — 글 slug. 같은 글은 어느 화면에서든 같은 그림이어야 한다 */
@@ -34,8 +35,20 @@ export function CoverImage({
   priority?: boolean;
   /** 크기 · 비율 · 모서리는 호출부가 정한다 (히어로와 카드가 다르다) */
   className?: string;
+  /**
+   * 조상에 `group` 이 있는 곳(글 카드 · 홈 히어로)에서 true — 마우스가 그 영역에
+   * 올라오면 그림이 틀 안에서 천천히 커진다. 틀(overflow-hidden)은 그대로라 배치가
+   * 밀리지 않고, 커지는 것은 안쪽 그림뿐이다.
+   */
+  zoomOnHover?: boolean;
 }) {
   const frame = `relative overflow-hidden bg-surface ${className}`;
+  // 사진과 도형 그림에 같은 동작을 건다 — 커버가 있든 없든 카드는 한 가지로 반응해야 한다.
+  // 5% 만 커진다 — 10% 는 썸네일 크기에서 가장자리가 눈에 띄게 잘려 나가 "커진다"보다
+  // "튄다"로 읽혔다. 300ms 는 제목 글자색이 바뀌는 속도와 맞춘 값이다.
+  const zoom = zoomOnHover
+    ? ' transition-transform duration-300 ease-out group-hover:scale-105 group-focus-within:scale-105 motion-reduce:transform-none motion-reduce:transition-none'
+    : '';
 
   if (src) {
     return (
@@ -47,7 +60,7 @@ export function CoverImage({
           loading={priority ? 'eager' : 'lazy'}
           fetchPriority={priority ? 'high' : 'auto'}
           decoding="async"
-          className="absolute inset-0 size-full object-cover"
+          className={`absolute inset-0 size-full object-cover${zoom}`}
         />
       </div>
     );
@@ -72,7 +85,7 @@ export function CoverImage({
       <svg
         viewBox={`0 0 ${COVER_VIEWBOX.width} ${COVER_VIEWBOX.height}`}
         preserveAspectRatio="xMidYMid slice"
-        className="absolute inset-0 size-full"
+        className={`absolute inset-0 size-full${zoom}`}
         style={{ color: fg }}
       >
         {coverShapes(seed).map((shape, i) => (

@@ -38,7 +38,7 @@
 
 - **반응형 분기**: 확인 필요 (스피너 크기·404 문구 줄바꿈)
 - **재사용 컴포넌트**: `src/app/not-found.tsx` (기존 404 화면), `src/components/CoverImage.tsx` (도형 커버 스타일 참고)
-- **신규 컴포넌트**: `src/app/loading.tsx` (루트 로딩 UI), `src/components/BaseballSpinner.tsx` (야구공 스피너)
+- **신규 컴포넌트**: `src/app/loading.tsx` (루트 로딩 UI), `src/components/BaseballIcon.tsx` (야구공 선 아이콘 — 회전은 `loading.tsx` 의 Tailwind 클래스가 담당), `src/components/ClickBaseball.tsx` (클릭 타구 효과)
 
 ## 🛠️ 접근 방식
 

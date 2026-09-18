@@ -86,3 +86,23 @@
 **다음 작업**
 
 - 없음 (브라우저에서 라이트·다크 실제 확인은 남음)
+
+### Commit — 2026-09-18 16:59
+
+- Message: `Docs: 리뷰 지적 반영 — 로딩 주석·plan.md 컴포넌트명·잔재 주석 정정`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `loading.tsx` 주석: "전역 규칙만으로 끈다" → 전역 규칙에 더해 `motion-reduce:animate-none` 을 명시하는 이유로 코드와 일치시킴
+- `admin/layout.tsx` 주석: 두 세대 전 이름 `ClickBurst` → `ClickBaseball`
+- `plan.md` 신규 컴포넌트: `BaseballSpinner` → 실제 구현 `BaseballIcon`·`ClickBaseball`
+
+**결정 로그**
+
+- /review-converge Round 1 의 Non-blocker 3건 중 "지금" 권장 2건 반영. 야구공 기하 3곳 복제는 후속 분리(`src/lib/baseball-geometry.ts` 추출 후보)
+
+**다음 작업**
+
+- 없음

@@ -45,23 +45,26 @@ export function SiteHeader() {
           <span className="text-[15px] font-bold tracking-tight">{SITE.name}</span>
         </Link>
 
-        {/* 좁은 화면에서는 링크 사이를 좁히고 대신 위아래 과녁을 키운다 —
-            구성(글 · 용어 · 테마)은 그대로 두되 손가락으로 누를 수 있어야 한다.
-            py-3 은 글자 20px 과 합쳐 44px, 모바일 터치 과녁 최소치다(헤더는 56px). */}
-        <nav className="flex items-center gap-0.5 text-sm sm:gap-1">
+        {/* 좁은 화면에서 링크의 위아래 과녁을 키운다 — py-3 은 글자 20px 과 합쳐 44px 로,
+            모바일 터치 과녁 최소치다. 헤더가 h-14(56px) 고정이라 그 안에서 흡수되고 높이가
+            늘지 않는다 — PostToc 의 top-20 · globals.css 의 scroll-margin-top 연쇄가 없다.
+            가로는 줄이지 않는다. "글" 은 한 글자라 좌우 padding 을 깎으면 과녁이 세로로만
+            길쭉해져 오히려 겨냥하기 나빠진다(360px 에서도 폭은 남는다).
+            ThemeToggle(h-7)은 이 44px 규칙 밖에 있다 — 시각 크기를 건드리게 되어 별도로 다룬다. */}
+        <nav className="flex items-center gap-1 text-sm">
           <Link
             href="/"
-            className="rounded-md px-2 py-3 text-ink-dim transition-colors hover:bg-surface hover:text-ink sm:px-2.5 sm:py-1.5"
+            className="rounded-md px-2.5 py-3 text-ink-dim transition-colors hover:bg-surface hover:text-ink sm:py-1.5"
           >
             글
           </Link>
           <Link
             href="/dictionary"
-            className="rounded-md px-2 py-3 text-ink-dim transition-colors hover:bg-surface hover:text-ink sm:px-2.5 sm:py-1.5"
+            className="rounded-md px-2.5 py-3 text-ink-dim transition-colors hover:bg-surface hover:text-ink sm:py-1.5"
           >
             용어
           </Link>
-          <span aria-hidden className="mx-1 h-4 w-px bg-line sm:mx-1.5" />
+          <span aria-hidden className="mx-1.5 h-4 w-px bg-line" />
           <ThemeToggle />
         </nav>
       </div>

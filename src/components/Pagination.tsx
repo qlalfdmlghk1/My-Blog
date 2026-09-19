@@ -25,7 +25,10 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label="페이지" className="mt-12 flex items-center justify-center gap-1">
+    // 과녁을 44px 로 키우면서 한 줄 폭 예산을 넘겼다 — pageWindow 최대 7칸에 이전/다음까지
+    // 붙으면 360px 에서 양끝이 잘리는데, justify-center 라 가로로 스크롤해 꺼낼 수도 없다.
+    // 넘칠 때 접히게 둔다(줄바꿈은 보기 나쁘지만 잘려서 못 누르는 것보다 낫다).
+    <nav aria-label="페이지" className="mt-12 flex flex-wrap items-center justify-center gap-1">
       <Step
         basePath={basePath}
         page={page - 1}

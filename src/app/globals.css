@@ -288,10 +288,15 @@
   overflow-wrap: break-word;
 }
 /* 좁은 화면에서만 본문을 한 급 키운다 — 손에 든 화면은 눈에서 멀고 한 줄이 짧아
-   같은 16px 이 더 빽빽하게 읽힌다. 글 상세(.reading)에만 건다: 관리자 미리보기와
-   사전 화면까지 따라 커지면 그쪽 레이아웃 기준이 같이 흔들린다.
-   639px = Tailwind sm(640px) 바로 아래 — 다른 분기와 경계를 맞춘다. */
-@media (max-width: 639px) {
+   같은 16px 이 더 빽빽하게 읽힌다.
+   .md 가 아니라 .reading .md 에 건다 — .md 는 글 상세 말고도 관리자 미리보기
+   (PostEditor · PublishReview)가 쓴다. 그쪽은 의도적으로 제외한다. 대신 좁은 화면에서는
+   미리보기의 본문 크기가 실제 발행 화면과 다르다는 것을 알고 있어야 한다.
+   아래 하위 스케일(h2·h3·h4·table·pre)은 전부 em 이라 이 한 줄에 같이 따라온다 —
+   rem 이던 시절엔 본문만 커지고 제목은 그대로라 h4 가 본문보다 작아졌다.
+   639.98px: sm 은 min-width:640px 이라 max-width:639px 로 자르면 그 사이 소수 폭
+   (OS 배율 125% · 브라우저 줌)이 두 분기 어디에도 안 걸린다. Tailwind 의 max-sm 과 같은 값. */
+@media (max-width: 639.98px) {
   .reading .md {
     font-size: 1.0625rem;
     line-height: 1.85;
@@ -311,17 +316,17 @@
 }
 .md h2 {
   margin-top: 2.4em;
-  font-size: 1.4rem;
+  font-size: 1.4em;
   padding-bottom: 0.35em;
   border-bottom: 1px solid var(--border);
 }
 .md h3 {
   margin-top: 1.9em;
-  font-size: 1.15rem;
+  font-size: 1.15em;
 }
 .md h4 {
   margin-top: 1.6em;
-  font-size: 1rem;
+  font-size: 1em;
 }
 .md a {
   font-weight: 600;
@@ -395,7 +400,7 @@
 .md table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.9rem;
+  font-size: 0.9em;
   display: block;
   overflow-x: auto;
 }
@@ -425,7 +430,7 @@
    테마 전환 시 재파싱 없이 변수만 바뀐다.
    ═══════════════════════════════════════════════ */
 .md pre.shiki {
-  font-size: 0.85rem;
+  font-size: 0.85em;
   line-height: 1.65;
   padding: 1em 1.15em;
   border-radius: 10px;

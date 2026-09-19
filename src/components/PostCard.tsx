@@ -36,11 +36,39 @@ export function PostCard({
         흐려져서, 판이 살짝 떠오르게 두어 지금 겨냥한 칸을 분명히 한다.
         좌우로는 글 폭 밖까지 넓힌다(-mx). 좁은 화면에서는 바깥 여백이 20px 뿐이라
         16px 을 다 쓰면 화면 끝에 닿아 잘린 것처럼 보이므로 한 단계 줄여 둔다.
+
+        ── 좁은 화면에서는 세로로 쌓는다 ──
+        가로 배치를 그대로 두면 360px 에서 글자에 남는 폭이 240px 도 안 되어 제목이
+        한 글자씩 떨어지고, 커버는 96px 짜리 우표만 해진다. 좁을 때는 커버를 카드 폭
+        전부로 넓혀 위에 얹고 글자를 그 아래로 내린다. sm 부터는 지금까지의 가로 배치
+        그대로다 — items-start 도 그때만 건다. 세로 배치의 교차축은 가로라,
+        거기서 걸면 커버는 w-full 이라 그대로지만 글자 칸이 내용 폭으로 줄어 좌우가 어긋난다.
       */}
-      <div className="-mx-3 flex items-start gap-4 rounded-xl px-3 py-4 transition-[background-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transform-none motion-reduce:transition-none sm:-mx-4 sm:gap-8 sm:px-4">
+      <div className="-mx-3 flex flex-col gap-3 rounded-xl px-3 py-4 transition-[background-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transform-none motion-reduce:transition-none sm:-mx-4 sm:flex-row sm:items-start sm:gap-8 sm:px-4">
+        {/*
+          커버가 DOM 에서 글자보다 **먼저** 온다. 세로 배치에서 위에 놓여야 하기도 하지만,
+          진짜 이유는 stretched link 의 겹침 순서다 — 제목 링크의 ::after 와 커버는 둘 다
+          위치 지정 요소라 z-index 가 없으면 DOM 순서대로 쌓인다. 커버가 뒤에 있으면 커버가
+          링크 위를 덮어 그 자리만 눌리지 않는데, 세로 배치에서는 그 면적이 카드의 절반이다.
+          커버는 장식(alt="" · aria-hidden)이라 읽는 순서가 앞당겨져도 잃는 것이 없다.
+          가로 배치에서의 좌우는 order 로 되돌린다.
+
+          다만 DOM 순서만으로는 절반만 해결된다 — flex 는 **order 가 반영된 순서**로 칠하므로
+          sm 이상에서 커버가 sm:order-2 가 되는 순간 다시 링크 위로 올라간다. 그래서 링크
+          ::after 에 z-[1] 을 박아 폭과 무관하게 항상 위에 오게 한다. 태그 칩은 z-10 이라
+          여전히 그 위에 있고(각자 다른 곳으로 가는 링크라 덮이면 안 된다),
+          CategoryBadge 는 span 이라 덮여도 잃는 것이 없다.
+        */}
+        <CoverImage
+          src={post.coverImage}
+          seed={post.slug}
+          category={category}
+          className="aspect-[16/9] w-full shrink-0 rounded-xl sm:order-2 sm:w-56"
+        />
+
         {/* 글자 쪽이 남는 폭을 다 갖는다. min-w-0 이 없으면 긴 제목이 줄바꿈하지 않고
             커버를 판 밖으로 밀어낸다. */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 sm:order-1">
           <div className="mb-2.5 flex items-center gap-2.5">
             <CategoryBadge slug={post.category} category={category} size="sm" />
             <time
@@ -51,11 +79,14 @@ export function PostCard({
             </time>
           </div>
 
-          <h2 className="break-keep text-[19px] font-bold leading-snug tracking-tight sm:text-xl">
+          {/* break-keep 은 공백에서만 끊는다 — 긴 URL 같은 무공백 토큰이 제목에 있으면
+              줄바꿈 대신 판 밖으로 삐져나가 화면에 가로 스크롤이 생긴다. anywhere 를 같이 걸어
+              끊을 곳이 없을 때만 강제로 끊게 둔다(한국어 낱말 보호는 break-keep 이 그대로 한다). */}
+          <h2 className="break-keep [overflow-wrap:anywhere] text-xl font-bold leading-snug tracking-tight">
             {/* 가로 폭은 판과 정확히 맞춘다 — 색은 깔리는데 눌리지는 않는 띠가 생기지 않게 */}
             <Link
               href={`/posts/${post.slug}`}
-              className="after:absolute after:-inset-x-3 after:inset-y-0 after:content-[''] sm:after:-inset-x-4"
+              className="after:absolute after:-inset-x-3 after:inset-y-0 after:z-[1] after:content-[''] sm:after:-inset-x-4"
             >
               {post.title}
             </Link>
@@ -76,15 +107,6 @@ export function PostCard({
             </div>
           )}
         </div>
-
-        {/* 커버는 오른쪽 고정 폭. 좁은 화면에서는 정사각형으로 줄여 글자 폭을 지킨다 —
-            가로로 긴 판을 그대로 두면 제목이 한 글자씩 떨어진다. */}
-        <CoverImage
-          src={post.coverImage}
-          seed={post.slug}
-          category={category}
-          className="w-24 shrink-0 rounded-lg aspect-square sm:aspect-[16/9] sm:w-56 sm:rounded-xl"
-        />
       </div>
     </article>
   );

@@ -294,9 +294,11 @@
    미리보기의 본문 크기가 실제 발행 화면과 다르다는 것을 알고 있어야 한다.
    아래 하위 스케일(h2·h3·h4·table·pre)은 전부 em 이라 이 한 줄에 같이 따라온다 —
    rem 이던 시절엔 본문만 커지고 제목은 그대로라 h4 가 본문보다 작아졌다.
-   639.98px: sm 은 min-width:640px 이라 max-width:639px 로 자르면 그 사이 소수 폭
-   (OS 배율 125% · 브라우저 줌)이 두 분기 어디에도 안 걸린다. Tailwind 의 max-sm 과 같은 값. */
-@media (max-width: 639.98px) {
+   쿼리를 max-width 로 적지 않는다 — sm 은 min-width:640px 이라 max-width:639px(또는
+   Bootstrap 관습값 639.98px)로 자르면 그 사이 소수 폭(OS 배율 125% · 브라우저 줌)이
+   두 분기 어디에도 안 걸려 본문만 데스크톱 값으로 떨어진다. sm 의 정확한 여집합은
+   not all and (min-width: 640px) 이고, Tailwind 가 max-sm: 을 뽑을 때 쓰는 쿼리도 이것이다. */
+@media not all and (min-width: 640px) {
   .reading .md {
     font-size: 1.0625rem;
     line-height: 1.85;

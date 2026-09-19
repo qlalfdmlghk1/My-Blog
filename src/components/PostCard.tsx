@@ -41,8 +41,8 @@ export function PostCard({
         가로 배치를 그대로 두면 360px 에서 글자에 남는 폭이 240px 도 안 되어 제목이
         한 글자씩 떨어지고, 커버는 96px 짜리 우표만 해진다. 좁을 때는 커버를 카드 폭
         전부로 넓혀 위에 얹고 글자를 그 아래로 내린다. sm 부터는 지금까지의 가로 배치
-        그대로다 — items-start 도 그때만 건다(커버는 w-full 이라 세로에서도 안 줄지만,
-        글자 칸이 내용 높이로 줄어 판 안에서 위아래가 어긋난다).
+        그대로다 — items-start 도 그때만 건다. 세로 배치의 교차축은 가로라,
+        거기서 걸면 커버는 w-full 이라 그대로지만 글자 칸이 내용 폭으로 줄어 좌우가 어긋난다.
       */}
       <div className="-mx-3 flex flex-col gap-3 rounded-xl px-3 py-4 transition-[background-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transform-none motion-reduce:transition-none sm:-mx-4 sm:flex-row sm:items-start sm:gap-8 sm:px-4">
         {/*

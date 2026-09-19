@@ -121,17 +121,17 @@ export default async function PostPage({ params }: Params) {
       }
     >
       <div className="min-w-0">
+      {/*
+          제목이 맨 위에 온다. 분류 배지와 날짜는 태그 아래로 내렸다 — 글을 열고 가장
+          먼저 확인하는 것은 "무슨 글인가"이고, 분류·날짜는 읽을지 정한 뒤에 보는 값이다.
+          순서를 폭으로 가르지 않는다: 좁은 화면만 다른 순서로 두려면 같은 내용을 두 벌
+          적어야 하고, 그러면 한쪽만 고치는 날이 온다.
+      */}
       <header className="border-b border-line pb-7">
-        <div className="mb-3 flex items-center gap-2.5">
-          <CategoryBadge slug={post.category} category={category} />
-          <time
-            dateTime={post.publishedAt ?? undefined}
-            className="text-xs tabular-nums text-ink-dim"
-          >
-            {formatDate(post.publishedAt)}
-          </time>
-        </div>
-        <h1 className="text-[1.75rem] font-bold leading-tight tracking-tight">
+        {/* 좁은 화면에서 제목을 키운다 — 본문 폭이 좁을수록 제목이 작아 보인다.
+            sm 부터는 지금까지의 1.75rem 그대로다(데스크톱 인상을 바꾸지 않는다).
+            break-keep: 한국어를 낱말 가운데서 끊지 않는다. */}
+        <h1 className="break-keep text-[2rem] font-bold leading-[1.2] tracking-tight sm:text-[1.75rem] sm:leading-tight">
           {post.title}
         </h1>
         {post.tags.length > 0 && (
@@ -141,6 +141,15 @@ export default async function PostPage({ params }: Params) {
             ))}
           </div>
         )}
+        <div className="mt-4 flex items-center gap-2.5">
+          <CategoryBadge slug={post.category} category={category} />
+          <time
+            dateTime={post.publishedAt ?? undefined}
+            className="text-xs tabular-nums text-ink-dim"
+          >
+            {formatDate(post.publishedAt)}
+          </time>
+        </div>
       </header>
 
       <article className="md mt-9" dangerouslySetInnerHTML={{ __html: html }} />

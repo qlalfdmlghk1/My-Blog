@@ -45,20 +45,23 @@ export function SiteHeader() {
           <span className="text-[15px] font-bold tracking-tight">{SITE.name}</span>
         </Link>
 
-        <nav className="flex items-center gap-1 text-sm">
+        {/* 좁은 화면에서는 링크 사이를 좁히고 대신 위아래 과녁을 키운다 —
+            구성(글 · 용어 · 테마)은 그대로 두되 손가락으로 누를 수 있어야 한다.
+            py-3 은 글자 20px 과 합쳐 44px, 모바일 터치 과녁 최소치다(헤더는 56px). */}
+        <nav className="flex items-center gap-0.5 text-sm sm:gap-1">
           <Link
             href="/"
-            className="rounded-md px-2.5 py-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+            className="rounded-md px-2 py-3 text-ink-dim transition-colors hover:bg-surface hover:text-ink sm:px-2.5 sm:py-1.5"
           >
             글
           </Link>
           <Link
             href="/dictionary"
-            className="rounded-md px-2.5 py-1.5 text-ink-dim transition-colors hover:bg-surface hover:text-ink"
+            className="rounded-md px-2 py-3 text-ink-dim transition-colors hover:bg-surface hover:text-ink sm:px-2.5 sm:py-1.5"
           >
             용어
           </Link>
-          <span aria-hidden className="mx-1.5 h-4 w-px bg-line" />
+          <span aria-hidden className="mx-1 h-4 w-px bg-line sm:mx-1.5" />
           <ThemeToggle />
         </nav>
       </div>

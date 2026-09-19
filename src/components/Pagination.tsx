@@ -70,9 +70,13 @@ export function Pagination({
   );
 }
 
-/** 번호·화살표가 같은 크기의 과녁을 갖게 한다 (모바일 터치 최소 크기) */
+/**
+ * 번호·화살표가 같은 크기의 과녁을 갖게 한다.
+ * 좁은 화면에서는 44px — 손가락으로 누르는 최소치다. sm 부터는 마우스로 겨냥하므로
+ * 지금까지의 36px 로 돌아간다(줄이 두꺼워지면 목록 끝이 무거워진다).
+ */
 const cell =
-  'inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2.5 text-sm tabular-nums';
+  'inline-flex h-11 min-w-[2.75rem] items-center justify-center rounded-lg px-2.5 text-sm tabular-nums sm:h-9 sm:min-w-[2.25rem]';
 
 /**
  * 이전·다음 — 갈 곳이 없으면 링크가 아니라 흐린 글자로 둔다.

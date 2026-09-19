@@ -287,6 +287,16 @@
   line-height: 1.8;
   overflow-wrap: break-word;
 }
+/* 좁은 화면에서만 본문을 한 급 키운다 — 손에 든 화면은 눈에서 멀고 한 줄이 짧아
+   같은 16px 이 더 빽빽하게 읽힌다. 글 상세(.reading)에만 건다: 관리자 미리보기와
+   사전 화면까지 따라 커지면 그쪽 레이아웃 기준이 같이 흔들린다.
+   639px = Tailwind sm(640px) 바로 아래 — 다른 분기와 경계를 맞춘다. */
+@media (max-width: 639px) {
+  .reading .md {
+    font-size: 1.0625rem;
+    line-height: 1.85;
+  }
+}
 .md > * + * {
   margin-top: 1.15em;
 }

@@ -25,7 +25,12 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   return (
-    <nav aria-label="페이지" className="mt-12 flex items-center justify-center gap-1">
+    // 과녁을 44px 로 키우면서 한 줄 폭 예산을 넘겼다 — pageWindow 최대 7칸에 이전/다음까지
+    // 붙으면 360px 에서 양끝이 잘리는데, justify-center 라 가로로 스크롤해 꺼낼 수도 없다.
+    // 넘칠 때 접히게 둔다(줄바꿈은 보기 나쁘지만 잘려서 못 누르는 것보다 낫다).
+    // gap 은 행·열 양쪽에 걸린다 — 그대로 두면 44px 짜리 두 줄이 4px 만 띄고 붙어
+    // 한 덩어리로 읽힌다. 열은 그대로 두고 행만 벌린다.
+    <nav aria-label="페이지" className="mt-12 flex flex-wrap items-center justify-center gap-x-1 gap-y-2">
       <Step
         basePath={basePath}
         page={page - 1}
@@ -70,9 +75,13 @@ export function Pagination({
   );
 }
 
-/** 번호·화살표가 같은 크기의 과녁을 갖게 한다 (모바일 터치 최소 크기) */
+/**
+ * 번호·화살표가 같은 크기의 과녁을 갖게 한다.
+ * 좁은 화면에서는 44px — 손가락으로 누르는 최소치다. sm 부터는 마우스로 겨냥하므로
+ * 지금까지의 36px 로 돌아간다(줄이 두꺼워지면 목록 끝이 무거워진다).
+ */
 const cell =
-  'inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2.5 text-sm tabular-nums';
+  'inline-flex h-11 min-w-[2.75rem] items-center justify-center rounded-lg px-2.5 text-sm tabular-nums sm:h-9 sm:min-w-[2.25rem]';
 
 /**
  * 이전·다음 — 갈 곳이 없으면 링크가 아니라 흐린 글자로 둔다.

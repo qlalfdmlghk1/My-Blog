@@ -182,3 +182,30 @@
 **다음 작업**
 
 - Round 2 델타 리뷰
+
+### Commit — 2026-09-21 12:10
+
+- Message: `Refactor: 리뷰 후속 — 댓글 데이터 접근 분리와 중복 정리`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `lib/comments.api.ts`(신규): 공개 댓글 영역의 fetch·localStorage. `CommentSection` 은 호출만
+- `lib/avatar.ts`(신규): `seedToNumber` 분리. `nickname.ts` 에 `server-only`
+- `comments.ts`: 없는 `validComment` 참조 제거, 미사용 상수 삭제
+- `profanity.ts`: `hasProfanity` 삭제, 검증용 export 사유 주석
+- `comments.server.ts`: `latestCommentBody` → `getComments` 위임
+- `api/comments/route.ts`: payload 타입을 `CommentDraft` 에서 파생
+- `docs/features/comments/review-converge.md`(신규): /review-converge 산출물 + 후속 처리 기록
+
+**결정 로그**
+
+- /review-converge: Round 1 (전체) Blocker 0 / NB 13 → 자동 반영 1 → Round 2 (델타) 0 / 0 → 최종 전체 재검증 Blocker 0 / NB 8 → **수렴 성공** (31분 44초)
+- 후속 결정 "권장안대로": 지금 5건(이 커밋) · 후속 3건(재검증 경로 복제 — 범위 밖 / isCommentableSlug — 후속 분리 / 쿨다운 소비 시점 — 판단 필요)
+- `comments.api.ts` 를 `comments.client.ts` 와 합치지 않은 이유: 후자는 `firebase/client` 를 import 해 공개 글 상세 번들에 Firebase SDK 가 딸려온다
+- 사람 확인 6건(next RCE 업그레이드 · 프롬프트 인젝션 방어 문구 · salt fail-open · reason 로그 마스킹 · 처리방침 고지 · XFF 신뢰)은 사용자 결정 대기
+
+**다음 작업**
+
+- 사람 확인 6건 결정 받아 반영

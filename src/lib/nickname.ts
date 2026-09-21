@@ -1,9 +1,14 @@
+import 'server-only';
+
 /**
  * 익명 작성자 표시 — 닉네임 조합과 아바타 시드.
  *
- * 순수 모듈이다. 발급은 서버 라우트가 하고 보관은 브라우저가 하지만, **검증도
- * 서버가 이 목록으로 한다.** 브라우저가 보내는 닉네임을 그대로 믿으면 '관리자'
- * 같은 이름을 달 수 있어서, 발급과 검증이 같은 목록을 봐야 한다.
+ * 발급은 서버 라우트가 하고 보관은 브라우저가 하지만, **검증도 서버가 이 목록으로
+ * 한다.** 브라우저가 보내는 닉네임을 그대로 믿으면 '관리자' 같은 이름을 달 수 있어서,
+ * 발급과 검증이 같은 목록을 봐야 한다.
+ *
+ * `server-only` 인 이유: 목록이 브라우저 번들에 실리면 조합만 맞춘 이름을 만들 수
+ * 있다. 클라이언트가 필요로 하는 순수 함수(`seedToNumber`)는 `avatar.ts` 에 따로 둔다.
  *
  * 목록을 넉넉히 두는 이유: 조합 수가 적으면 한 글에서 같은 닉네임이 자주 겹친다.
  * 지금은 40 × 40 = 1,600 가지이고, 겹쳐도 아바타 시드로 갈린다(중복은 허용한다).
@@ -73,18 +78,4 @@ export function isValidNickname(nickname: string): boolean {
 
 export function isValidAvatarSeed(seed: string): boolean {
   return seed.length === SEED_LENGTH && [...seed].every((c) => SEED_ALPHABET.includes(c));
-}
-
-/**
- * 시드에서 아바타 색·도형을 뽑을 때 쓰는 정수.
- *
- * 암호학적 해시가 아니다 — 같은 시드가 언제나 같은 그림이 되기만 하면 된다.
- * (djb2 변형: 곱하고 더하고 32비트로 자른다)
- */
-export function seedToNumber(seed: string): number {
-  let hash = 5381;
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = ((hash << 5) + hash + seed.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash);
 }

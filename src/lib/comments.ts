@@ -5,9 +5,10 @@
  * 관리자 삭제는 `comments.client.ts`, 쓰기는 `app/api/comments/route.ts` 다.
  * 여기에는 **컬렉션 이름 · 한계값 · 본문 판정**만 둔다 (`dictionary.ts` 와 같은 구성).
  *
- * 특히 한계값을 한 곳에 두는 것이 중요하다. 입력창의 글자 수 표시, 서버 검증,
- * `firestore.rules` 가 같은 숫자를 봐야 "화면은 통과시키는데 저장이 막히는" 상태가
- * 생기지 않는다.
+ * 특히 한계값을 한 곳에 두는 것이 중요하다. 입력창의 글자 수 표시와 서버 검증이
+ * 같은 숫자를 봐야 "화면은 통과시키는데 서버가 거절하는" 상태가 생기지 않는다.
+ * `firestore.rules` 에는 댓글 검증 함수가 **없다** — 규칙은 생성 자체를 막고, 검증은
+ * 서버 라우트(`api/comments`)가 유일한 관문이다. 규칙에 검증을 "복구"하지 말 것.
  */
 
 import type { Comment } from '@/types/comment';
@@ -19,11 +20,8 @@ export const THROTTLE_COLLECTION = 'commentThrottle';
 export const COMMENT_LIMITS = {
   /** trim 후 최소 — 공백만 있는 입력을 막는다 */
   minBody: 1,
-  /** firestore.rules 의 validComment 와 같은 값 */
+  /** 서버 라우트가 거절하는 상한. 입력창의 maxLength 도 이 값 */
   maxBody: 500,
-  /** 닉네임은 조합으로 검증하지만, 규칙에서는 길이로만 막을 수 있어 여유를 둔다 */
-  maxNickname: 40,
-  maxAvatarSeed: 16,
   /** 한 글의 공개 목록에 그리는 최대 개수 — 정적 HTML 크기를 여기에 묶어 둔다 */
   maxRendered: 100,
   /** 같은 IP 가 다시 쓸 수 있을 때까지 (밀리초) */

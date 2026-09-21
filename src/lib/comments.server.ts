@@ -71,19 +71,10 @@ export async function isCommentableSlug(postSlug: string): Promise<boolean> {
   );
 }
 
-/** 그 글의 가장 최근 댓글 본문 — 같은 내용 연속 작성 판정에 쓴다 */
+/**
+ * 그 글의 가장 최근 댓글 본문 — 같은 내용 연속 작성 판정에 쓴다.
+ * `getComments` 가 이미 최신순으로 돌려주므로 첫 항목이 답이다.
+ */
 export async function latestCommentBody(postSlug: string): Promise<string | null> {
-  if (!hasAdminCredentials()) return null;
-  return safeRead(
-    'latestCommentBody',
-    async () => {
-      const snap = await adminDb()
-        .collection(COLLECTION)
-        .where('postSlug', '==', postSlug)
-        .get();
-      const comments = sortComments(snap.docs.map((d) => normalizeComment(d.id, d.data(), toIso)));
-      return comments[0]?.body ?? null;
-    },
-    null,
-  );
+  return (await getComments(postSlug))[0]?.body ?? null;
 }

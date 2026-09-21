@@ -15,7 +15,7 @@ import { judgeComment } from '@/lib/moderation.server';
 import { isValidAvatarSeed, isValidNickname } from '@/lib/nickname';
 import { findProfanity } from '@/lib/profanity';
 import { checkAndMarkThrottle, clientIp, hashIp } from '@/lib/throttle.server';
-import type { Comment, CommentRejectReason } from '@/types/comment';
+import type { Comment, CommentDraft, CommentRejectReason } from '@/types/comment';
 
 /**
  * 익명 댓글 저장.
@@ -50,7 +50,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return reject('unavailable', '댓글 기능이 아직 준비되지 않았습니다.', 503);
   }
 
-  let payload: { postSlug?: unknown; nickname?: unknown; avatarSeed?: unknown; body?: unknown };
+  // 필드 이름은 CommentDraft 에서 파생한다 — 값은 아직 검증 전이라 unknown
+  let payload: Partial<Record<keyof CommentDraft, unknown>>;
   try {
     payload = (await request.json()) as typeof payload;
   } catch {

@@ -36,11 +36,26 @@ export function SiteHeader() {
         본문으로 건너뛰기
       </a>
       <div className="mx-auto flex h-14 max-w-shell items-center justify-between gap-4 px-5">
-        <Link href="/" className="group flex items-center gap-2.5">
-          {/* 무채색 시스템이라 로고에도 색을 쓰지 않는다 — 점 하나로 표식만 만든다 */}
-          <span
-            aria-hidden
-            className="size-2 rounded-full bg-ink transition-transform duration-200 ease-out group-hover:scale-125 motion-reduce:transition-none"
+        <Link href="/" className="group flex items-center gap-2">
+          {/*
+            로고 표식. 한동안 무채색 점 하나였다 — "색은 분류에만" 규칙을 로고에까지
+            적용한 것이었는데, 그러다 보니 사이트에 얼굴이 없었다. 지금은 마스코트를 쓴다.
+            이 그림이 화면에서 유일하게 분류 팔레트 밖의 색을 쓰는 자리이고, 크기가
+            24px 라 카테고리 배지와 부딪히지 않는다.
+
+            next/image 를 쓰지 않는 것은 CoverImage 와 같다(그쪽 주석 참조). 여기서는
+            이유가 하나 더 있다 — 24px 고정 자산이라 최적화 파이프라인을 태워도 얻을 게 없다.
+            width·height 를 적어 레이아웃이 밀리지 않게 한다.
+
+            alt 는 비운다. 바로 옆에 사이트 이름이 글자로 있어 읽어주면 같은 말이 두 번 나온다.
+          */}
+          {/* eslint-disable-next-line @next/next/no-img-element -- 24px 고정 자산 (위 주석) */}
+          <img
+            src="/logo.png"
+            alt=""
+            width={24}
+            height={24}
+            className="size-6 rounded-lg transition-transform duration-200 ease-out group-hover:scale-110 motion-reduce:transition-none"
           />
           <span className="text-[15px] font-bold tracking-tight">{SITE.name}</span>
         </Link>

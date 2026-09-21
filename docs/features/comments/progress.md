@@ -132,3 +132,33 @@
 **다음 작업**
 
 - 로고 커밋
+
+### Commit — 2026-09-21 11:15
+
+- Message: `Feat: 마스코트 로고를 헤더와 탭 아이콘에 적용`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `public/logo.png` · `src/app/icon.png` 신규 (168×168, 6.5KB 동일 파일)
+- `SiteHeader`: 무채색 점 → 24px 마스코트 이미지. 기존 "로고에도 색을 쓰지 않는다" 주석을 새 근거로 교체
+
+**결정 로그**
+
+- 기존 판단(무채색 점)을 뒤집었다. 근거: 사이트에 얼굴이 없었고, 24px 라 카테고리 배지와 부딪히지 않는다. 화면에서 분류 팔레트 밖의 색을 쓰는 유일한 자리
+- `next/image` 대신 raw `img` — 24px 고정 자산이라 최적화 파이프라인으로 얻을 게 없다 (CoverImage 와 같은 방식, 사유는 다름)
+- favicon 은 `src/app/icon.png` 규약에 맡긴다. 빌드 결과에서 `<link rel="icon" sizes="168x168">` 확인
+- `alt=""` — 바로 옆에 사이트 이름이 글자로 있어 읽어주면 같은 말이 두 번 나온다
+
+**트러블슈팅**
+
+- `src/app/icon.png` 추가 후 첫 빌드가 `Cannot find module for page: /api/slug/suggest` 로 실패. 라우트 매니페스트가 갱신되지 않은 캐시 문제로, `rm -rf .next` 후 정상. 한 번만 겪는 현상
+
+**남은 작업 (배포 전)**
+
+- `COMMENT_IP_SALT` 를 `.env.local`·Vercel 에 추가
+- `npm run rules:deploy` 로 Firestore 규칙 배포
+- Firebase 콘솔에서 `commentThrottle.expireAt` TTL 정책 켜기
+- Firebase 요금제 확인 — Blaze 면 예산 알림
+- 다크 모드에서 로고의 연한 배경이 밝은 사각형으로 뜸 — 거슬리면 다크용 변형 검토

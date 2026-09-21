@@ -46,7 +46,7 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
     <section
       aria-roledescription="carousel"
       aria-label="최신 글"
-      className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:gap-12"
+      className="group relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] lg:items-center lg:gap-12"
     >
       {/* 라이브 영역은 갈아끼워지지 않는 바깥 상자에 둔다 — 안쪽이 key 로 새로 붙으면
           "새 영역이 생긴 것"이라 바뀐 제목을 읽어주지 않는다. */}
@@ -91,13 +91,19 @@ export function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
       </div>
 
       {/* 좁은 화면에서는 커버가 먼저 온다 — 제목 위에 사진이 있어야 카드처럼 읽힌다.
-          DOM 은 제목이 먼저다: 스크린리더가 사진(장식)보다 제목을 먼저 만나야 한다. */}
+          DOM 은 제목이 먼저다: 스크린리더가 사진(장식)보다 제목을 먼저 만나야 한다.
+
+          제목 링크의 ::after 가 section 전체를 덮으므로 어디에 올려도 링크 위다.
+          그때 반응하는 것은 커버 하나뿐이다 — 글 카드와 달리 제목 색은 두지 않는다.
+          제목이 40px 로 크고 히어로에 글이 하나라 겨냥한 곳이 헷갈릴 일이 없고,
+          큰 제목이 통째로 보라가 되면 화면의 무게가 사진에서 글자로 옮겨 간다. */}
       <CoverImage
         key={`cover-${post.id}`}
         src={post.coverImage}
         seed={post.slug}
         category={category}
         priority={index === 0}
+        zoomOnHover
         className="rise order-first aspect-[16/9] rounded-2xl lg:order-none lg:aspect-[1.85]"
       />
     </section>

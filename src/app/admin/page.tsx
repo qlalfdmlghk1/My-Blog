@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { TagChip } from '@/components/TagChip';
 import { StatusPill, btnPrimary, btnQuiet, btnSecondary } from '@/components/admin/ui';
+import { takeAdminNotice } from '@/lib/admin-notice';
 import { listCategories } from '@/lib/categories.client';
 import { formatDate } from '@/lib/date';
 import { listAllPosts } from '@/lib/posts.client';
@@ -19,6 +20,8 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   /** 카테고리만 실패한 경우 — 글 목록은 살아 있으므로 경고로만 알린다 */
   const [categoryError, setCategoryError] = useState<string | null>(null);
+  /** 발행 화면이 넘겨준 한 줄 안내(예: 커버 생성 실패). 한 번 보이고 사라진다 */
+  const [notice, setNotice] = useState<string | null>(null);
 
   /**
    * 둘을 Promise.all 로 묶지 않는다 — 한쪽이 실패하면 다른 쪽 결과까지 버려진다.
@@ -26,6 +29,8 @@ export default function AdminPage() {
    * 글이 이 화면의 본체이므로 카테고리는 없으면 없는 대로 그린다(배지가 무채색이 된다).
    */
   useEffect(() => {
+    setNotice(takeAdminNotice());
+
     listAllPosts()
       .then(setPosts)
       .catch((err: unknown) =>
@@ -70,6 +75,9 @@ export default function AdminPage() {
             <Link href="/admin/dictionary" className={btnQuiet}>
               용어 사전
             </Link>
+            <Link href="/admin/comments" className={btnQuiet}>
+              댓글
+            </Link>
             <Link href="/admin/write" className={`${btnPrimary} ml-2`}>
               새 글 쓰기
             </Link>
@@ -92,6 +100,12 @@ export default function AdminPage() {
           style={{ backgroundColor: 'var(--danger-bg)', color: 'var(--danger-fg)' }}
         >
           {error}
+        </p>
+      )}
+
+      {notice && (
+        <p role="status" className="mt-6 rounded-lg border border-ink-dim px-3.5 py-3 text-sm leading-relaxed">
+          {notice}
         </p>
       )}
 

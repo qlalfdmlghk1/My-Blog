@@ -1,0 +1,157 @@
+# loading-ui — 진행 상황
+
+## 📌 현재 작업
+
+- 이슈: (미생성 — github-issue-draft.md 참고) (Feat)
+- 브랜치: feature/loading-ui
+- 단계: 구현 완료, 커밋 대기
+- 마지막 업데이트: 2026-09-18
+
+---
+
+## [Issue #?] loading-ui
+
+**Type**: Feat | **Jira**: 미사용 | **시작**: 2026-09-18
+
+### ✅ 완료
+
+- [x] 작업 환경 셋업 (/start 실행)
+- [x] 페이지 전환 로딩에 야구공 회전 스피너가 뜨게 — `src/app/loading.tsx` + `src/components/BaseballIcon.tsx`
+- [x] 404 페이지 문구에 야구 표현이 들어가게 — `src/app/not-found.tsx` (가운데 0 을 야구공으로. 문장 은유는 뺌)
+- [x] (추가) 꽃 커서 → 야구공 커서 — `globals.css` `--cursor-ball` (BaseballIcon 좌표 0.55 배, 채움 + 굵은 선, 라이트·다크 두 벌)
+- [x] (추가) 클릭 나비 → 투구·타구 — `ClickBaseball.tsx` (ClickButterflies 대체. 공 1개가 아래 반원에서 직선으로 들어와 접점에서 위로 꺾여 사라짐. 실밥만 팔레트 색, 켜지지 않는 조건은 나비와 동일)
+
+### 🚧 진행 중
+
+- [ ] (없음)
+
+### 📝 결정 로그
+
+- [2026-09-18] /start 실행, 작업 환경 셋업 완료. gh CLI 미설치로 GitHub 이슈는 초안만 저장, 브랜치는 이슈번호 없이 생성
+- [2026-09-18] 사용자 요청으로 기획 검수(/plan-review)·확인 게이트 생략, 바로 구현 착수
+- [2026-09-18] 야구공은 색 없이 currentColor 선으로만 그림 — "색은 분류에만" 규칙 유지, 야구 블로그처럼 보이지 않게
+- [2026-09-18] 야구 표현은 "있는 요소 바꿔치기"에만 둠 (404 의 0 → 공, 라벨 not found ↔ warming up). 요소를 더하지 않음
+- [2026-09-18] 404 문구의 "파울 라인 밖으로 나갔습니다"는 과하다는 피드백으로 제거. 야구 포인트는 도형(0 → 공)으로만
+- [2026-09-18] (범위 추가) 주요 버튼 액센트 교체. 경로: Figma `Atomic/Secondary` 500/300 진한 보라 → 아님 → 연초록 계열 시도(검정 글자 / 흰 글자 AA 한계 / 토스 밝기 3.4:1) → 후보 4개 이미지 비교로 "아주 연한 면 + 진한 글자" 구조 확정(D) → 같은 구조를 보라로도 그려 **P(Figma Secondary 토큰)** 로 최종 확정. 라이트 면 200 #d7cfff / 글자 700 #2408ab (8.40:1) · 호버 300 (4.52:1, AA 경계). 다크 면 300 #9f8cff / 글자 900 #120067 (6.28:1) · 호버 200. `purple` 슬롯은 원래 값 유지, 형태로 구분
+- [2026-09-18] 커서·클릭 효과도 야구로 교체. 커서는 항상 보이는 요소라 가장 눈에 띄는 야구 포인트 — 과하면 `--cursor-ball` 두 값만 되돌리면 됨(꽃 SVG 는 git 이력에 있음)
+- [2026-09-18 17:00] /review-converge 1라운드 — 수렴 성공. 자동 반영 0건, 남긴 항목 5건. Non-blocker 3건 중 2건 반영(04519ab), 1건 후속 분리. 노트 초안은 review-notes.md (PR 생성 후 코멘트로)
+- [2026-09-18] 검증: lint·typecheck 통과, dev 서버에서 404 HTML 에 SVG·새 문구 렌더 확인, sharp 로 아이콘 래스터 확인
+
+### 🐛 트러블슈팅
+
+<!-- /note troubleshoot 으로 추가 -->
+
+### ⏭️ 남은 작업
+
+- [ ] GitHub 이슈 수동 생성 후 번호를 plan.md·브랜치명에 반영 (`git branch -m feature/{번호}-loading-ui`)
+- [ ] 브라우저에서 라이트·다크 양쪽 실제 확인 (느린 네트워크로 로딩 화면 노출 · 커서 · 여백 클릭 시 타구 · 버튼 색)
+- [ ] (리뷰 후속) 야구공 기하 `src/lib/baseball-geometry.ts` 로 추출 — BaseballIcon · ClickBaseball 이 import, 커서 data URI 는 주석으로 정본 표시
+- [ ] (리뷰 후속·판단) 루트 `loading.tsx` 를 `/admin`·`/login` 에서도 쓸지 — 끄려면 `admin/loading.tsx` 별도
+- [ ] (리뷰 후속·별도 PR) `npm audit fix` — next <15.5.24 Critical 2건, postcss High
+- [ ] (리뷰 후속) 라이트 `--accent-hover` 대비 4.52:1 브라우저 실측 · 커서 data URI 색 토큰 주석 · `ballSvg` JSDoc 한 줄
+
+### Commit — 2026-09-18 16:42
+
+- Message: `Feat: 꽃 커서와 나비 클릭 효과를 야구공과 타구로 교체`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `globals.css` `--cursor-flower` → `--cursor-ball`: BaseballIcon 좌표를 0.55 배로 줄인 야구공 커서(채움 + 굵은 선), 라이트·다크 두 벌
+- `ClickBaseball.tsx` 신설, `ClickButterflies.tsx` 삭제: 공 1개가 아래 반원에서 직선으로 들어와 접점에서 위로 꺾여 사라짐(투구·타구). 실밥만 팔레트 색
+- `layout.tsx` 연결 교체, admin/layout · login/page 주석 갱신
+
+**결정 로그**
+
+- 켜지지 않는 조건(동작 최소화·관리 화면·조작 요소 클릭·드래그 직후)은 나비와 동일하게 유지
+- 커서는 항상 보이는 요소라 가장 눈에 띄는 야구 포인트 — 과하면 `--cursor-ball` 두 값만 되돌린다
+
+**다음 작업**
+
+- 버튼 액센트 색 커밋
+
+### Commit — 2026-09-18 16:42
+
+- Message: `Feat: 주요 버튼 액센트를 Figma Secondary 토큰의 연보라로 교체`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `globals.css` `--accent` 계열: 라이트 면 200 #d7cfff / 글자 700 #2408ab / 호버 300, 다크 면 300 #9f8cff / 글자 900 #120067 / 호버 200
+- `admin/ui.tsx` 주석 갱신 (제비꽃 → 연보라)
+
+**결정 로그**
+
+- 구조는 "아주 연한 면 + 진한 글자". 진한 면 + 흰 글자(기존)·연초록 계열·토스 밝기(AA 미달)를 거쳐 후보 4개 이미지 비교로 확정
+- 값은 계산하지 않고 Figma 디자인 시스템 v2.0 `Atomic/Secondary` 토큰을 그대로 쓴다
+- 라이트 호버는 4.52:1 로 AA 경계 — 더 진하게 하려면 글자를 800 으로 같이 올려야 함
+
+**다음 작업**
+
+- 없음 (브라우저에서 라이트·다크 실제 확인은 남음)
+
+### Commit — 2026-09-18 16:59
+
+- Message: `Docs: 리뷰 지적 반영 — 로딩 주석·plan.md 컴포넌트명·잔재 주석 정정`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `loading.tsx` 주석: "전역 규칙만으로 끈다" → 전역 규칙에 더해 `motion-reduce:animate-none` 을 명시하는 이유로 코드와 일치시킴
+- `admin/layout.tsx` 주석: 두 세대 전 이름 `ClickBurst` → `ClickBaseball`
+- `plan.md` 신규 컴포넌트: `BaseballSpinner` → 실제 구현 `BaseballIcon`·`ClickBaseball`
+
+**결정 로그**
+
+- /review-converge Round 1 의 Non-blocker 3건 중 "지금" 권장 2건 반영. 야구공 기하 3곳 복제는 후속 분리(`src/lib/baseball-geometry.ts` 추출 후보)
+
+**다음 작업**
+
+- 없음
+
+### Commit — 2026-09-18 17:40
+
+- Message: `Feat: 글 카드 호버를 판 띄우기에서 제목 색 · 커버 확대로 교체`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `PostCard`: 판의 배경·그림자·translate 호버를 제거하고 제목 글자색만 `--accent-text` 로 바뀜
+- `CoverImage`: `zoomOnHover` prop — 조상 `group` 호버·포커스에 사진·도형 커버가 틀 안에서 5% 확대
+- `HeroCarousel`: `group` + 커버 확대만 적용, 제목 색은 두지 않음
+- `globals.css` · `tailwind.config.ts`: 글자용 액센트 토큰 `--accent-text` (라이트 #2408ab 10.5:1, 다크 #9f8cff)
+
+**결정 로그**
+
+- 판 전체가 들썩이는 호버는 목록이 부산해 보여 폐기. 움직이는 것은 제목 색·커버 두 요소로 한정
+- 확대는 5% — 10% 는 썸네일에서 가장자리가 잘려 "튄다"로 읽힘. 300ms 는 제목 색 전환과 맞춤
+- 버튼 면(`--accent`)은 글자로 쓰기엔 옅고(1.44:1) 버튼 글자(`--accent-fg`)는 다크에서 묻혀 글자 전용 토큰을 분리
+
+**다음 작업**
+
+- 발행 후 안내 이동(admin-notice) 커밋
+
+### Commit — 2026-09-18 17:41
+
+- Message: `Feat: 발행 후 커버 실패 안내를 목록 화면에서 띄우도록 이동`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `lib/admin-notice.ts`(신규): `stashAdminNotice` / `takeAdminNotice` — sessionStorage 로 안내 한 줄을 넘기고 읽는 즉시 삭제
+- `PublishReview`: 커버 경고가 있어도 발행 화면에 머물지 않고 `/admin` 으로 이동
+- `admin/page`: 마운트 시 안내를 꺼내 `role="status"` 로 표시
+
+**결정 로그**
+
+- 쿼리스트링 대신 sessionStorage — 주소가 히스토리·북마크에 남아 새로고침마다 같은 안내가 반복되는 것을 피함
+- 저장소가 막힌 환경(시크릿 모드)은 안내만 잃고 발행은 이미 끝난 뒤라 조용히 넘어감
+
+**다음 작업**
+
+- 없음 (loading-ui 브랜치 마무리 → 댓글 기능은 별도 브랜치 `feature/comments`)

@@ -4,9 +4,11 @@ import { notFound } from 'next/navigation';
 import type { CSSProperties } from 'react';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
+import { CommentSection } from '@/components/CommentSection';
 import { hasToc, PostToc } from '@/components/PostToc';
 import { TagChip } from '@/components/TagChip';
 import { getCategoryBySlug } from '@/lib/categories.server';
+import { getComments } from '@/lib/comments.server';
 import { toDictionaryAnchors } from '@/lib/dictionary';
 import { getDictionary } from '@/lib/dictionary.server';
 import { renderMarkdown } from '@/lib/markdown';
@@ -66,9 +68,13 @@ export default async function PostPage({ params }: Params) {
   //
   // 용어 표기는 본문을 그리기 **전에** 있어야 해서 렌더와 나란히 두지 못한다.
   // 사전이 비었거나 조회에 실패하면 빈 배열이고, 그 글은 용어 링크 없이 그대로 뜬다.
-  const [category, dictionary] = await Promise.all([
+  //
+  // 댓글도 여기서 함께 읽는다 — 정적 HTML 에 실려야 검색엔진과 자바스크립트가 꺼진
+  // 환경에서도 읽힌다. 조회에 실패하면 빈 배열이고 입력창만 뜬다.
+  const [category, dictionary, comments] = await Promise.all([
     getCategoryBySlug(post.category),
     getDictionary(),
+    getComments(post.slug),
   ]);
   const { html, toc, terms } = await renderMarkdown(post.content, toDictionaryAnchors(dictionary));
 
@@ -180,6 +186,8 @@ export default async function PostPage({ params }: Params) {
           </ul>
         </section>
       )}
+
+      <CommentSection postSlug={post.slug} comments={comments} />
 
       <nav className="mt-16 border-t border-line pt-6 text-sm">
         <Link href="/" className="font-semibold hover:underline">

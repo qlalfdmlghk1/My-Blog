@@ -31,9 +31,9 @@ export function PostCard({
      */
     <article className="group relative border-b border-line py-4 first:pt-0">
       {/*
-        호버·키보드 포커스 시 이 판에 색이 깔리고 그림자가 붙는다 — 눌리는 범위가
-        카드 한 칸임을 보여준다. 배경만으로는 목록이 길어질수록 어느 칸에 올라와 있는지
-        흐려져서, 판이 살짝 떠오르게 두어 지금 겨냥한 칸을 분명히 한다.
+        호버·키보드 포커스에 판은 가만히 있다. 한동안 판에 색을 깔고 그림자를 붙여
+        띄웠는데, 카드 전체가 들썩여 목록이 부산해 보였다. 대신 **제목 글자색이 바뀌고
+        커버가 틀 안에서 커진다** — 움직이는 것은 안쪽 두 요소뿐이고 판의 자리는 그대로다.
         좌우로는 글 폭 밖까지 넓힌다(-mx). 좁은 화면에서는 바깥 여백이 20px 뿐이라
         16px 을 다 쓰면 화면 끝에 닿아 잘린 것처럼 보이므로 한 단계 줄여 둔다.
 
@@ -44,7 +44,7 @@ export function PostCard({
         그대로다 — items-start 도 그때만 건다. 세로 배치의 교차축은 가로라,
         거기서 걸면 커버는 w-full 이라 그대로지만 글자 칸이 내용 폭으로 줄어 좌우가 어긋난다.
       */}
-      <div className="-mx-3 flex flex-col gap-3 rounded-xl px-3 py-4 transition-[background-color,box-shadow,transform] duration-200 group-hover:-translate-y-0.5 group-hover:bg-surface group-hover:shadow-card group-focus-within:bg-surface group-focus-within:shadow-card motion-reduce:transform-none motion-reduce:transition-none sm:-mx-4 sm:flex-row sm:items-start sm:gap-8 sm:px-4">
+      <div className="-mx-3 flex flex-col gap-3 rounded-xl px-3 py-4 sm:-mx-4 sm:flex-row sm:items-start sm:gap-8 sm:px-4">
         {/*
           커버가 DOM 에서 글자보다 **먼저** 온다. 세로 배치에서 위에 놓여야 하기도 하지만,
           진짜 이유는 stretched link 의 겹침 순서다 — 제목 링크의 ::after 와 커버는 둘 다
@@ -63,6 +63,7 @@ export function PostCard({
           src={post.coverImage}
           seed={post.slug}
           category={category}
+          zoomOnHover
           className="aspect-[16/9] w-full shrink-0 rounded-xl sm:order-2 sm:w-56"
         />
 
@@ -82,7 +83,7 @@ export function PostCard({
           {/* break-keep 은 공백에서만 끊는다 — 긴 URL 같은 무공백 토큰이 제목에 있으면
               줄바꿈 대신 판 밖으로 삐져나가 화면에 가로 스크롤이 생긴다. anywhere 를 같이 걸어
               끊을 곳이 없을 때만 강제로 끊게 둔다(한국어 낱말 보호는 break-keep 이 그대로 한다). */}
-          <h2 className="break-keep [overflow-wrap:anywhere] text-xl font-bold leading-snug tracking-tight">
+          <h2 className="break-keep [overflow-wrap:anywhere] text-xl font-bold leading-snug tracking-tight transition-colors duration-200 group-hover:text-accent-text group-focus-within:text-accent-text motion-reduce:transition-none">
             {/* 가로 폭은 판과 정확히 맞춘다 — 색은 깔리는데 눌리지는 않는 띠가 생기지 않게 */}
             <Link
               href={`/posts/${post.slug}`}

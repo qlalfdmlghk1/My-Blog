@@ -60,6 +60,20 @@ export async function POST(request: Request): Promise<NextResponse> {
   const tags = strings(body.tags);
   const scope = typeof body.scope === 'string' ? body.scope : '';
 
+  // 댓글은 그 글 하나에만 나타난다 — 목록·RSS·sitemap·카테고리 집계 어디에도
+  // 실리지 않으므로 아래의 전량 무효화가 통째로 불필요하다. 여기서 끝낸다.
+  if (scope === 'comment') {
+    if (!slug) {
+      return NextResponse.json({ error: 'slug 가 필요합니다.' }, { status: 400 });
+    }
+    // slug 에 한글을 허용하므로 두 표기를 모두 무효화한다 (아래 pushPath 와 같은 이유)
+    const paths = [`/posts/${slug}`];
+    const encoded = `/posts/${encodeURIComponent(slug)}`;
+    if (encoded !== paths[0]) paths.push(encoded);
+    for (const path of paths) revalidatePath(path);
+    return NextResponse.json({ revalidated: paths });
+  }
+
   // 목록·RSS·sitemap 은 글 하나만 바뀌어도 함께 갱신돼야 한다.
   // 사전도 같다 — 항목마다 '그 용어가 나오는 글' 목록을 함께 그리므로, 글이 하나
   // 발행되면 그 글이 쓴 용어들의 관련글이 곧바로 낡는다. 어느 용어인지는 본문을

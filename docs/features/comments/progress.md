@@ -105,3 +105,30 @@
 **다음 작업**
 
 - 화면(글 상세 댓글 영역·관리자 삭제) 커밋
+
+### Commit — 2026-09-21 11:12
+
+- Message: `Feat: 글 상세 댓글 영역과 관리자 삭제 화면 추가`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `components/CommentSection.tsx`: 닉네임 발급·랜덤 변경·입력·목록. localStorage 에 닉네임 보관
+- `components/CommentAvatar.tsx`: 시드 기반 도형 아바타(이미지 아님 — 정적 HTML 에 함께 실린다)
+- `lib/comments.client.ts`: 관리자 읽기·삭제·재검증 호출
+- `app/posts/[slug]/page.tsx`: `getComments` 를 카테고리·사전과 함께 읽어 넘김
+- `app/admin/comments/page.tsx` 신규, `app/admin/page.tsx` 관리 메뉴에 "댓글" 링크 추가
+
+**결정 로그**
+
+- 목록은 서버가 프리렌더한다 — 정적 HTML 에 실려야 검색엔진과 JS 꺼진 환경에서 읽힌다. 클라이언트 컴포넌트인 것은 입력 때문
+- 저장 후 `router.refresh()` 와 별개로 방금 쓴 댓글을 상태에 들고 있는다. 재생성 전에 응답이 오면 "등록됐다는데 안 보인다"가 된다
+- 거절되면 입력 내용을 지우지 않는다 — 고쳐서 다시 낼 수 있어야 한다
+- 무엇에 걸렸는지는 작성자에게 알리지 않고 서버 로그에만 남긴다. 알려주면 그 부분만 바꿔 재시도하게 된다
+- 관리자 목록은 `getAllComments`(서버) 대신 클라이언트에서 기존 `listAllPosts` 와 조합. 관리 화면은 `AuthGuard` 가 클라이언트라 서버 컴포넌트로 두면 초안 제목이 권한 전에 나간다
+- 본문은 React 텍스트로만 렌더. 마크다운·자동 링크 없음(XSS 지점을 만들지 않는다)
+
+**다음 작업**
+
+- 로고 커밋

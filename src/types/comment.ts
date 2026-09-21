@@ -44,8 +44,14 @@ export type CommentSubmitResult =
   | { ok: false; reason: CommentRejectReason; message: string };
 
 export type CommentRejectReason =
-  /** 길이·공백·닉네임 위조 등 형식 문제 */
+  /** 길이·공백 등 본문 형식 문제 */
   | 'invalid'
+  /**
+   * 닉네임·아바타 시드가 서버가 발급한 조합이 아니다. 본문과 갈라 두는 이유:
+   * 화면이 이 코드를 보면 닉네임을 **자동으로 다시 발급**받아야 하는데, 본문 길이
+   * 문제와 같은 코드면 그때마다 멀쩡한 닉네임까지 바뀐다.
+   */
+  | 'invalid-identity'
   /** 댓글을 받을 수 없는 글 (draft · 없는 slug) */
   | 'not-found'
   /** 비속어 사전에 걸림 */

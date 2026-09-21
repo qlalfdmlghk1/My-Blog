@@ -162,3 +162,23 @@
 - Firebase 콘솔에서 `commentThrottle.expireAt` TTL 정책 켜기
 - Firebase 요금제 확인 — Blaze 면 예산 알림
 - 다크 모드에서 로고의 연한 배경이 밝은 사각형으로 뜸 — 거슬리면 다크용 변형 검토
+
+### Commit — 2026-09-21 11:35
+
+- Message: `Fix: 닉네임 거부 시 자동 재발급이 도달 불가 조건에 묶인 문제 수정`
+- Issue: (미생성 — github-issue-draft.md)
+- Jira: 미사용
+
+**변경 요약**
+
+- `CommentRejectReason` 에 `invalid-identity` 추가 — 본문 형식(`invalid`)과 닉네임 위조를 코드로 구분
+- `api/comments/route.ts`: 닉네임·시드 검증 실패 시 `invalid-identity` 반환
+- `CommentSection`: `invalid-identity` 면 `issueIdentity()` 호출. 기존 조건 `reason === 'invalid' && !trimmed` 는 `canSubmit` 이 빈 본문을 막아 항상 false 였다
+
+**결정 로그**
+
+- /review-converge Round 1 자동 반영 (명백한 기능 오류, confidence 92). 리뷰어가 제안한 단순화안(`invalid` 면 무조건 재발급)은 택하지 않았다 — 본문 길이 문제에도 멀쩡한 닉네임이 바뀐다
+
+**다음 작업**
+
+- Round 2 델타 리뷰

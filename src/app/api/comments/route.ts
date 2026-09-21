@@ -65,7 +65,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   // 1. 형식 — 닉네임이 우리가 발급할 수 있는 조합인지까지 본다.
   //    브라우저가 보낸 값을 그대로 믿으면 '관리자'·글쓴이 이름으로 댓글을 달 수 있다.
   if (!isValidNickname(nickname) || !isValidAvatarSeed(avatarSeed)) {
-    return reject('invalid', '닉네임을 다시 발급받아 주세요.', 400);
+    return reject('invalid-identity', '닉네임을 다시 발급받아 주세요.', 400);
   }
   if (!isValidBodyLength(body)) {
     return reject(

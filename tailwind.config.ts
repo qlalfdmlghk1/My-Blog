@@ -27,10 +27,13 @@ const config: Config = {
          * 가리키므로, Tailwind 유틸로 열어도 카테고리 색이 본문에 새지 않는다.
          * 쓰는 곳을 주요 버튼으로 한정한다 — 링크·본문·배경에 쓰기 시작하면
          * `purple` 배지와 부딪혀 어느 보라가 분류인지 흐려진다.
+         * 예외는 `accent-text` 하나 — 글 카드 제목의 호버 글자색. 굵은 제목 글자에만
+         * 쓰고 면으로는 쓰지 않는다(값과 이유는 globals.css).
          */
         accent: 'var(--accent)',
         'accent-fg': 'var(--accent-fg)',
         'accent-hover': 'var(--accent-hover)',
+        'accent-text': 'var(--accent-text)',
       },
       /**
        * 그림자 두 단계 — 값은 globals.css 가 테마별로 정의한다.

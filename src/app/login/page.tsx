@@ -52,7 +52,7 @@ export default function LoginPage() {
   }
 
   return (
-    // cursor-auto — 로그인도 작업 화면이라 꽃 커서를 끈다(admin/layout.tsx 와 같은 기준)
+    // cursor-auto — 로그인도 작업 화면이라 야구공 커서를 끈다(admin/layout.tsx 와 같은 기준)
     <main
       id="main"
       className="mx-auto flex max-w-shell cursor-auto justify-center px-5 py-16 sm:py-24"

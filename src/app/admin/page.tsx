@@ -70,6 +70,9 @@ export default function AdminPage() {
             <Link href="/admin/dictionary" className={btnQuiet}>
               용어 사전
             </Link>
+            <Link href="/admin/comments" className={btnQuiet}>
+              댓글
+            </Link>
             <Link href="/admin/write" className={`${btnPrimary} ml-2`}>
               새 글 쓰기
             </Link>

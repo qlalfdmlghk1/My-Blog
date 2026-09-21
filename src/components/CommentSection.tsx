@@ -117,8 +117,9 @@ export function CommentSection({
       if (!result.ok) {
         // 거절되면 내용을 지우지 않는다 — 고쳐서 다시 낼 수 있어야 한다
         setError(result.message);
-        // 닉네임이 거부된 경우에만 새로 발급받는다 (저장소에 옛 형식이 남은 경우)
-        if (result.reason === 'invalid' && !trimmed) void issueIdentity();
+        // 닉네임이 거부되면 새로 발급받는다 — 저장소에 옛 형식이 남은 경우.
+        // 본문 문제('invalid')와 코드를 갈라 둔 이유는 types/comment.ts 참조.
+        if (result.reason === 'invalid-identity') void issueIdentity();
         return;
       }
 

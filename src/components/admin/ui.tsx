@@ -6,7 +6,7 @@ import type { PostStatus } from '@/types/post';
  * 공개 화면과 같은 토큰(bg · surface · line · ink · ink-dim · accent)만 쓴다 —
  * 관리자라고 색을 더 얹으면 "색은 분류에만" 규칙이 관리자에서부터 무너지고,
  * 카테고리 색이 화면에서 눈에 띄지 않게 된다.
- * accent(제비꽃)는 **주요 버튼 한 곳**에만 쓴다. 근거는 globals.css 의 --accent 주석.
+ * accent(연보라)는 **주요 버튼 한 곳**에만 쓴다. 근거는 globals.css 의 --accent 주석.
  *
  * 투명도 수식(`bg-bg/80`)은 bg · surface 에서만 동작한다 — 그 둘만
  * `rgb(var(--*-rgb) / <alpha-value>)` 로 조립돼 있다(tailwind.config.ts).

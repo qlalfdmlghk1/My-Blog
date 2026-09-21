@@ -97,6 +97,17 @@ service cloud.firestore {
         && d.order is number;
   }
 
+  // 익명 댓글은 **생성 규칙을 두지 않는다.** 아래 match 에서 create 를 통째로 막고
+  // 서버 라우트(api/comments)만 Admin SDK 로 쓴다 — Admin SDK 는 규칙을 우회한다.
+  //
+  // 왜 규칙으로 열지 않는가: 규칙은 필드의 모양만 볼 수 있을 뿐 "이 문장이 욕설인가"를
+  // 판정하지 못한다. 익명 쓰기를 규칙에서 열면 서버의 비속어 사전·Gemini 판정·도배
+  // 제한을 전부 건너뛰고 컬렉션에 직접 문서를 넣을 수 있다. 글과 달리 작성자가
+  // 인증되지 않으므로 "누가 넣었는지"로 되돌릴 수도 없다.
+  //
+  // 그래서 이 컬렉션의 경계는 "관리자냐"가 아니라 **"서버를 거쳤느냐"** 이고,
+  // 그 경계는 create 를 여는 순간 사라진다.
+
   function validSubcategory(d) {
     return d.keys().hasAll(['name', 'order'])
         && d.name is string && d.name.size() > 0 && d.name.size() < 60
@@ -146,6 +157,31 @@ service cloud.firestore {
       // 지운 용어를 가리키던 본문 링크는 사전 페이지의 빈 앵커로 떨어질 뿐이라
       // 카테고리처럼 "글이 남아 있는지" 확인할 필요가 없다.
       allow delete: if isAdmin();
+    }
+
+    match /comments/{commentId} {
+      // 댓글은 공개 정보다 — 글 상세가 로그인 없이 읽는다.
+      allow read: if true;
+
+      // 생성은 아무에게도 열지 않는다(관리자에게도). 이 컬렉션에 쓰는 것은
+      // 서버 라우트의 Admin SDK 뿐이고, Admin SDK 는 이 규칙을 통과하지 않는다.
+      // 관리자에게 create 를 열어두면 "관리 화면에서 쓰면 필터를 건너뛴다"는
+      // 두 번째 경로가 생기고, 그 경로는 쓰이지 않는 동안 조용히 남는다.
+      allow create: if false;
+
+      // 수정도 막는다. 익명 댓글은 작성자가 고칠 수 없는 것이 이 기능의 규약이고
+      // (화면에도 그렇게 적혀 있다), 관리자가 남의 말을 고치는 것은 삭제보다 나쁘다.
+      allow update: if false;
+
+      // 잘못 올라간 댓글을 치우는 유일한 수단. 서버 필터가 100% 는 아니므로 필요하다.
+      allow delete: if isAdmin();
+    }
+
+    match /commentThrottle/{ipHash} {
+      // 도배 판정 기록 — 공개 데이터가 아니다. 문서 ID 가 IP 해시라서, 읽기를 열면
+      // 특정 IP 가 최근에 댓글을 썼는지 남이 확인할 수 있게 된다.
+      // 서버 라우트만 Admin SDK 로 읽고 쓴다.
+      allow read, write: if false;
     }
 
     // collectionGroup('subcategories') 조회용. 위의 중첩 match 는 경로가 고정된

@@ -5,8 +5,14 @@ import { useRouter } from 'next/navigation';
 
 import { CommentAvatar } from '@/components/CommentAvatar';
 import { COMMENT_LIMITS, normalizeBody, sortComments } from '@/lib/comments';
+import {
+  issueCommentIdentity,
+  readStoredIdentity,
+  storeIdentity,
+  submitComment,
+} from '@/lib/comments.api';
 import { formatDate } from '@/lib/date';
-import type { Comment, CommentIdentity, CommentSubmitResult } from '@/types/comment';
+import type { Comment, CommentIdentity } from '@/types/comment';
 
 /**
  * 글 아래 댓글 영역.
@@ -19,34 +25,6 @@ import type { Comment, CommentIdentity, CommentSubmitResult } from '@/types/comm
  * 브라우저에 저장된 값밖에 없는데, 그건 지우거나 옮기면 그만이라 권한의 근거가 되지
  * 못한다. 지울 수 있는 사람은 관리자뿐이고, 그 사실을 입력창에 미리 적어둔다.
  */
-
-const STORAGE_KEY = 'comment:identity';
-
-/**
- * 닉네임은 브라우저에 남긴다 — 같은 사람이 여러 글에 댓글을 달면 같은 이름으로 보인다.
- * 저장소가 막힌 환경(시크릿 모드)에서는 매번 새로 발급받을 뿐 기능은 그대로 돈다.
- */
-function readStoredIdentity(): CommentIdentity | null {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<CommentIdentity>;
-    if (typeof parsed.nickname === 'string' && typeof parsed.avatarSeed === 'string') {
-      return { nickname: parsed.nickname, avatarSeed: parsed.avatarSeed };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-function storeIdentity(identity: CommentIdentity): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(identity));
-  } catch {
-    // 저장소를 못 쓰면 이번 방문에만 쓰는 이름이 된다
-  }
-}
 
 export function CommentSection({
   postSlug,
@@ -70,15 +48,11 @@ export function CommentSection({
   const [justAdded, setJustAdded] = useState<Comment[]>([]);
 
   const issueIdentity = useCallback(async () => {
-    try {
-      const res = await fetch('/api/comments/identity', { cache: 'no-store' });
-      if (!res.ok) return;
-      const next = (await res.json()) as CommentIdentity;
-      setIdentity(next);
-      storeIdentity(next);
-    } catch {
-      // 발급에 실패하면 입력창이 비활성으로 남는다 — 아래 disabled 조건
-    }
+    const next = await issueCommentIdentity();
+    // 발급에 실패하면 입력창이 비활성으로 남는다 — 아래 disabled 조건
+    if (!next) return;
+    setIdentity(next);
+    storeIdentity(next);
   }, []);
 
   useEffect(() => {
@@ -106,31 +80,21 @@ export function CommentSection({
 
     setBusy(true);
     setError(null);
-    try {
-      const res = await fetch('/api/comments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postSlug, ...identity, body: trimmed }),
-      });
-      const result = (await res.json()) as CommentSubmitResult;
+    const result = await submitComment({ postSlug, ...identity, body: trimmed });
+    setBusy(false);
 
-      if (!result.ok) {
-        // 거절되면 내용을 지우지 않는다 — 고쳐서 다시 낼 수 있어야 한다
-        setError(result.message);
-        // 닉네임이 거부되면 새로 발급받는다 — 저장소에 옛 형식이 남은 경우.
-        // 본문 문제('invalid')와 코드를 갈라 둔 이유는 types/comment.ts 참조.
-        if (result.reason === 'invalid-identity') void issueIdentity();
-        return;
-      }
-
-      setBody('');
-      setJustAdded((prev) => [result.comment, ...prev]);
-      router.refresh();
-    } catch {
-      setError('댓글을 보내지 못했습니다. 연결을 확인해 주세요.');
-    } finally {
-      setBusy(false);
+    if (!result.ok) {
+      // 거절되면 내용을 지우지 않는다 — 고쳐서 다시 낼 수 있어야 한다
+      setError(result.message);
+      // 닉네임이 거부되면 새로 발급받는다 — 저장소에 옛 형식이 남은 경우.
+      // 본문 문제('invalid')와 코드를 갈라 둔 이유는 types/comment.ts 참조.
+      if (result.reason === 'invalid-identity') void issueIdentity();
+      return;
     }
+
+    setBody('');
+    setJustAdded((prev) => [result.comment, ...prev]);
+    router.refresh();
   }
 
   return (

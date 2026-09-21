@@ -96,6 +96,9 @@ function isHangulSyllable(ch: string): boolean {
   return code >= HANGUL_BASE && code <= HANGUL_LAST;
 }
 
+// normalizeForMatch · toJamo 를 export 하는 이유: 라우트는 findProfanity 만 쓰지만,
+// 표기 변형이 실제로 같은 줄이 되는지 확인하는 스크립트가 두 단계를 따로 본다.
+
 /**
  * 대조용 정규화 — 글자만 남긴다.
  *
@@ -161,8 +164,4 @@ export function findProfanity(body: string): string | null {
   const runs = standaloneJamoRuns(normalized);
   const jamoHit = JAMO_WORDS.find((word) => runs.some((run) => run.includes(word)));
   return jamoHit ?? null;
-}
-
-export function hasProfanity(body: string): boolean {
-  return findProfanity(body) !== null;
 }

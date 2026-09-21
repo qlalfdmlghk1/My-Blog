@@ -1,4 +1,4 @@
-import { seedToNumber } from '@/lib/nickname';
+import { seedToNumber } from '@/lib/avatar';
 
 /**
  * 익명 작성자 아바타.

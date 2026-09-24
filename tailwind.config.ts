@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import plugin from 'tailwindcss/plugin';
 
 /**
  * 색은 장식이 아니라 길찾기 — 무채색이 화면의 90%.
@@ -58,7 +59,16 @@ const config: Config = {
       maxWidth: { prose: '44rem', shell: '76rem' },
     },
   },
-  plugins: [],
+  plugins: [
+    /**
+     * `toc-collapsed:` — 글 상세에서 독자가 목차를 접어 본문을 넓혔을 때.
+     * layout 의 인라인 스크립트가 첫 페인트 전에 html 에 `.toc-collapsed` 를 붙이므로
+     * 이 변형으로 그린 폭·아이콘은 하이드레이션 전에도 이미 맞다 (`dark:` 와 같은 원리).
+     */
+    plugin(({ addVariant }) => {
+      addVariant('toc-collapsed', ':is(.toc-collapsed &)');
+    }),
+  ],
 };
 
 export default config;

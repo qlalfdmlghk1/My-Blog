@@ -35,7 +35,9 @@ export function PostToc({ toc }: { toc: TocEntry[] }) {
   return (
     // overflow-x-hidden: 접히는 동안 칸(13rem → 2rem)이 안쪽 목록보다 좁아진다.
     // 넘친 부분은 잘라 내야 가로 스크롤바가 생기지 않는다.
-    <nav aria-label="목차" className="hidden xl:sticky xl:top-20 xl:block xl:max-h-[calc(100dvh-7rem)] xl:self-start xl:overflow-y-auto xl:overflow-x-hidden">
+    // 접힌 뒤에는 세로 스크롤도 끈다 — 숨긴 목록(invisible)이 높이를 그대로 차지해,
+    // 긴 목차 글에서는 2rem 칸에 스크롤바가 남아 펼치기 단추를 덮는다.
+    <nav aria-label="목차" className="hidden xl:sticky xl:top-20 xl:block xl:max-h-[calc(100dvh-7rem)] xl:self-start xl:overflow-y-auto xl:overflow-x-hidden xl:toc-collapsed:overflow-y-hidden">
       {/*
           단추를 맨 왼쪽에 둔다 — 칸이 2rem 으로 줄어도 왼쪽 끝은 그대로라 단추가
           제자리에 남고, 오른쪽의 글자·목록만 칸 밖으로 밀려 잘린다.
@@ -80,8 +82,8 @@ export function PostTocInline({ toc }: { toc: TocEntry[] }) {
 }
 
 /**
- * 여닫는 손잡이. 브라우저 기본 삼각형은 지우고 같은 자리에 화살표를 둔다 —
- * 기본 마커는 브라우저마다 모양과 여백이 달라 두 벌 목차가 서로 다르게 보인다.
+ * 좁은 화면 목차(<details>)의 여닫는 손잡이. 브라우저 기본 삼각형은 지우고 같은
+ * 자리에 화살표를 둔다 — 기본 마커는 브라우저마다 모양과 여백이 달라 통일한다.
  */
 function TocSummary({ className, count }: { className: string; count?: number }) {
   return (

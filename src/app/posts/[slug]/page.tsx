@@ -103,19 +103,23 @@ export default async function PostPage({ params }: Params) {
     // 남는 2rem 칸에는 다시 펼치는 단추만 남는다.
     // 칸 폭은 300ms 동안 스르륵 바뀐다(PostToc 의 옅어짐과 같은 시간). 첫 페인트 전에
     // 클래스가 이미 붙어 있으므로 접어 둔 독자가 글을 열 때는 전환이 일어나지 않는다.
+    // 동작 최소화는 `xl:` 을 붙여 끈다 — 맨 motion-reduce: 는 CSS 에서 xl 미디어쿼리보다
+    // 앞에 출력돼 xl 의 transition 에 진다.
     <main
       id="main"
       className={
         withToc
-          ? 'reading mx-auto max-w-prose px-5 py-12 xl:grid xl:max-w-shell xl:grid-cols-[minmax(0,44rem)_13rem] xl:gap-10 xl:justify-center xl:toc-collapsed:grid-cols-[minmax(0,55rem)_2rem] xl:transition-[grid-template-columns] xl:duration-300 xl:ease-out motion-reduce:transition-none'
+          ? 'reading mx-auto max-w-prose px-5 py-12 xl:grid xl:max-w-shell xl:grid-cols-[minmax(0,44rem)_13rem] xl:gap-10 xl:justify-center xl:toc-collapsed:grid-cols-[minmax(0,55rem)_2rem] xl:transition-[grid-template-columns] xl:duration-300 xl:ease-out xl:motion-reduce:transition-none'
           : 'reading mx-auto max-w-prose px-5 py-12'
       }
-      /* 위 `reading` 은 "글 상세라는 읽기 면" 의 표식이고, globals.css 에서 **두 가지**를 켠다.
+      /* 위 `reading` 은 "글 상세라는 읽기 면" 의 표식이고, globals.css 에서 **세 가지**를 켠다.
            1. 드래그 선택(형광펜) — ::selection 이 이 클래스 안에서만 걸린다.
               목록·사전·관리자 화면은 브라우저 기본 선택색으로 남는다.
            2. 좁은 화면 본문 타이포 — .reading .md 가 sm 미만에서 본문을 한 급 키운다.
               관리자 미리보기(.md 만 있고 .reading 없음)는 여기 해당하지 않는다.
-          이 클래스를 떼면 선택색뿐 아니라 본문 크기도 함께 조용히 돌아간다.
+           3. 배트 커서 — body:has(.reading) 이 이 main 이 있는 페이지 전체의 커서를
+              공에서 야구 배트로 바꾼다.
+          이 클래스를 떼면 선택색·본문 크기·커서가 함께 조용히 돌아간다.
 
           여기 style 은 그 형광펜에 이 글의 카테고리 색을 얹는다.
            - `--term-line`: 용어 링크의 점선 밑줄색 (globals.css 의 .md a.term)

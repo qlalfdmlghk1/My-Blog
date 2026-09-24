@@ -41,7 +41,9 @@ export function TocCollapseToggle() {
       onClick={toggle}
       // 테두리 없이 아이콘만 둔다 — 목차 옆 작은 단추라 선이 있으면 목록보다 눈에 띈다.
       // 누를 수 있는 자리임은 마우스를 올렸을 때 깔리는 옅은 면으로 알린다.
-      className="flex size-8 shrink-0 items-center justify-center rounded-md text-ink-dim transition-colors hover:bg-surface hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      // 포커스 링은 안쪽(-2px)에 그린다 — 단추가 목차 칸(overflow 잘림)의 왼쪽 위
+      // 모서리에 붙어 있고 접히면 칸 폭이 단추 폭과 같아, 바깥 링은 잘려 안 보인다.
+      className="flex size-8 shrink-0 items-center justify-center rounded-md text-ink-dim transition-colors hover:bg-surface hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ink"
     >
       {/* 펼친 상태: 오른쪽(»)으로 밀어 넣기 / 접힌 상태: 왼쪽(«)으로 꺼내기 */}
       <svg

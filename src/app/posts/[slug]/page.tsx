@@ -5,7 +5,8 @@ import type { CSSProperties } from 'react';
 
 import { CategoryBadge } from '@/components/CategoryBadge';
 import { CommentSection } from '@/components/CommentSection';
-import { hasToc, PostToc } from '@/components/PostToc';
+import { CoverImage } from '@/components/CoverImage';
+import { hasToc, PostToc, PostTocInline } from '@/components/PostToc';
 import { TagChip } from '@/components/TagChip';
 import { getCategoryBySlug } from '@/lib/categories.server';
 import { getComments } from '@/lib/comments.server';
@@ -95,11 +96,18 @@ export default async function PostPage({ params }: Params) {
     // 본문 한 줄 길이는 목차 유무와 무관하게 44rem 을 지킨다 — 목차가 붙는 xl 에서만
     // 컨테이너를 넓혀 옆자리를 만든다. 아래 폭에서까지 76rem 을 쓰면 목차 있는 글만
     // 한 줄이 1.7배 길어져 같은 블로그의 글이 서로 다른 읽기 경험이 된다.
+    //
+    // 예외는 독자가 직접 목차를 접었을 때(toc-collapsed:) 하나다 — 넓게 읽고 싶다는
+    // 본인의 선택이므로 목차 칸(13rem)이 비운 자리만큼 본문을 넓혀 55rem 으로 둔다.
+    // 두 칸 합(44+2.5+13 = 55+2.5+2 = 59.5rem)을 맞춰 화면 좌우 가장자리는 그대로다.
+    // 남는 2rem 칸에는 다시 펼치는 단추만 남는다.
+    // 칸 폭은 300ms 동안 스르륵 바뀐다(PostToc 의 옅어짐과 같은 시간). 첫 페인트 전에
+    // 클래스가 이미 붙어 있으므로 접어 둔 독자가 글을 열 때는 전환이 일어나지 않는다.
     <main
       id="main"
       className={
         withToc
-          ? 'reading mx-auto max-w-prose px-5 py-12 xl:grid xl:max-w-shell xl:grid-cols-[minmax(0,44rem)_13rem] xl:gap-10 xl:justify-center'
+          ? 'reading mx-auto max-w-prose px-5 py-12 xl:grid xl:max-w-shell xl:grid-cols-[minmax(0,44rem)_13rem] xl:gap-10 xl:justify-center xl:toc-collapsed:grid-cols-[minmax(0,55rem)_2rem] xl:transition-[grid-template-columns] xl:duration-300 xl:ease-out motion-reduce:transition-none'
           : 'reading mx-auto max-w-prose px-5 py-12'
       }
       /* 위 `reading` 은 "글 상세라는 읽기 면" 의 표식이고, globals.css 에서 **두 가지**를 켠다.
@@ -137,6 +145,21 @@ export default async function PostPage({ params }: Params) {
           순서를 폭으로 가르지 않는다: 좁은 화면만 다른 순서로 두려면 같은 내용을 두 벌
           적어야 하고, 그러면 한쪽만 고치는 날이 온다.
       */}
+      {/*
+          커버는 제목 위 — 목록에서 본 그림을 열자마자 다시 보여줘 같은 글이라는 인상을 잇는다.
+          비율·모서리를 카드(PostCard)와 맞춰 "같은 그림"으로 읽히게 한다.
+          사진을 올린 글만 그린다. 목록의 도형 그림은 카드를 한 톤으로 맞추려는 장치라
+          상세에서까지 띄우면 사진 없는 글마다 의미 없는 판이 제목을 밀어낸다.
+          글 상세에서 가장 먼저 그려지는 큰 그림이라 priority 로 지연 로딩을 끈다.
+      */}
+      {post.coverImage && (
+        <CoverImage
+          src={post.coverImage}
+          seed={post.slug}
+          priority
+          className="mb-8 aspect-[16/9] w-full rounded-xl"
+        />
+      )}
       <header className="border-b border-line pb-7">
         {/* 좁은 화면에서 제목을 키운다 — 본문 폭이 좁을수록 제목이 작아 보인다.
             sm 부터는 지금까지의 1.75rem 그대로다(데스크톱 인상을 바꾸지 않는다).
@@ -161,6 +184,8 @@ export default async function PostPage({ params }: Params) {
           </time>
         </div>
       </header>
+
+      <PostTocInline toc={toc} />
 
       <article className="md mt-9" dangerouslySetInnerHTML={{ __html: html }} />
 

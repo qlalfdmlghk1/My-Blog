@@ -28,6 +28,15 @@ const themeInit = `(function(){try{var t=localStorage.getItem('theme');
 if(t!=='light'&&t!=='dark'){t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}
 if(t==='dark'){document.documentElement.classList.add('dark')}}catch(e){}})();`;
 
+/**
+ * 같은 이유로 글 상세의 "목차 접기"도 첫 페인트 전에 확정한다 — 접어 둔 독자가
+ * 글을 열 때마다 좁은 본문이 한 번 찍혔다 넓어지지 않게. 키는 TocCollapseToggle 과 같다.
+ * 클래스는 모든 페이지의 html 에 붙지만 `toc-collapsed:` 를 쓰는 곳이 글 상세뿐이라
+ * 다른 화면에는 아무 영향이 없다.
+ */
+const tocInit = `(function(){try{if(localStorage.getItem('toc')==='collapsed'){
+document.documentElement.classList.add('toc-collapsed')}}catch(e){}})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko" suppressHydrationWarning>
@@ -66,6 +75,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* 카테고리 색 변수 — categories.ts 에서 파생 생성 (정의처가 한 곳뿐이어야 한다) */}
         <style dangerouslySetInnerHTML={{ __html: categoryCssVariables() }} />
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <script dangerouslySetInnerHTML={{ __html: tocInit }} />
       </head>
       <body className="flex min-h-dvh flex-col font-sans">
         <SiteHeader />

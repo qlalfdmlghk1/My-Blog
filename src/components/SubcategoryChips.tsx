@@ -1,8 +1,8 @@
 import { TagChip } from '@/components/TagChip';
-import type { CategoryNode } from '@/lib/posts';
+import { LOOSE_SUBCATEGORY, LOOSE_SUBCATEGORY_NAME, type CategoryNode } from '@/lib/posts';
 
 /**
- * 카테고리 화면의 소분류 칩 한 줄 — "전체 · Next.js · React · CSS".
+ * 카테고리 화면의 소분류 칩 한 줄 — "전체 · Next.js · React · CSS · 분류 없음".
  *
  * 사이드바 트리에서 세로로 펼쳐지던 2단을 가로로 눕힌 것이다. 칩은 태그와 같은
  * TagChip 을 쓴다 — 소분류는 색을 갖지 않는다는 규칙(색은 대분류에만)이 그대로고,
@@ -11,8 +11,9 @@ import type { CategoryNode } from '@/lib/posts';
  * 글이 0편인 소분류도 보인다. 사이드바가 그랬던 이유와 같다 — 빈 칸이 보여야
  * 무엇을 쓸 차례인지 드러나고, 링크를 끊으면 발행 직후 집계가 낡은 동안 못 누른다.
  *
- * 소분류를 지운 뒤 남은 글(looseCount)은 칩으로 만들지 않는다. 그 글들은 갈 주소가
- * 없고, 카테고리 "전체" 에는 이미 잡혀 있다. 정리는 관리 화면이 안내한다.
+ * 소분류가 비어 있는 글(looseCount)은 맨 끝의 '분류 없음' 칩으로 모은다. 이 칩만은
+ * 0편이면 숨긴다 — 사람이 만든 칸이 아니라 "아직 분류하지 않은 글"의 자리라,
+ * 비어 있을 때 보이면 쓸 차례를 알리는 게 아니라 잡음이 된다.
  */
 export function SubcategoryChips({
   category,
@@ -39,6 +40,15 @@ export function SubcategoryChips({
           active={active === s.slug}
         />
       ))}
+      {category.looseCount > 0 && (
+        <TagChip
+          tag={LOOSE_SUBCATEGORY}
+          label={LOOSE_SUBCATEGORY_NAME}
+          count={category.looseCount}
+          href={`${base}/${LOOSE_SUBCATEGORY}`}
+          active={active === LOOSE_SUBCATEGORY}
+        />
+      )}
     </nav>
   );
 }

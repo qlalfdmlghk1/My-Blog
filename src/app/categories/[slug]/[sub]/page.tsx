@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 
 import { SubcategoryList } from '@/components/lists/SubcategoryList';
 import { getSubcategories, readCategories } from '@/lib/categories.server';
+import { LOOSE_SUBCATEGORY, LOOSE_SUBCATEGORY_NAME } from '@/lib/posts';
 import { decodeSlugParam } from '@/lib/slug';
 
 export const revalidate = 3600;
@@ -23,7 +24,10 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
   const [{ categories }, subs] = await Promise.all([readCategories(), getSubcategories()]);
   const parent = categories.find((c) => c.slug === category);
-  const found = subs.find((s) => s.category === category && s.slug === subcategory);
+  const found =
+    subcategory === LOOSE_SUBCATEGORY
+      ? { name: LOOSE_SUBCATEGORY_NAME }
+      : subs.find((s) => s.category === category && s.slug === subcategory);
   if (!parent || !found) return {};
 
   return {

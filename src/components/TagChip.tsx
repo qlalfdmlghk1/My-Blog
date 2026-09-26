@@ -24,7 +24,9 @@ export function TagChip({
     </>
   );
   const className = [
-    'inline-flex items-center rounded-full px-2.5 py-1 text-xs transition-colors',
+    // 높이는 여백(py)이 아니라 h-6 으로 못 박는다 — 여백에 맡기면 줄 상자 높이가 글꼴을
+    // 따라가, 한글 칩("전체")과 영문 칩("React")의 기준선 차이만큼 키가 1~2px 어긋난다.
+    'inline-flex h-6 items-center rounded-full px-2.5 text-xs leading-none transition-colors',
     // ring 은 기본이 바깥쪽이라 active 칩만 사방 1px 씩 커진다 — 배경 밖에 링이 떠
     // 보이고 칩이 줄바꿈으로 놓일 때 정렬이 어긋난다. inset 으로 안쪽에 긋는다.
     // 색에 알파 수식(ring-current/40)을 쓰지 않는다 — currentColor 는 <alpha-value> 를

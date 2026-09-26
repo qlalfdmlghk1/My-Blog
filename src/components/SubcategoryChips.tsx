@@ -40,7 +40,9 @@ export function SubcategoryChips({
           active={active === s.slug}
         />
       ))}
-      {category.looseCount > 0 && (
+      {/* 지금 이 칩의 화면이면 0편이어도 남긴다 — 숨기면 제목은 '분류 없음'인데
+          칩 줄에 현재 위치가 하나도 표시되지 않는다 */}
+      {(category.looseCount > 0 || active === LOOSE_SUBCATEGORY) && (
         <TagChip
           tag={LOOSE_SUBCATEGORY}
           label={LOOSE_SUBCATEGORY_NAME}

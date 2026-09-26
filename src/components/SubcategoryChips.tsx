@@ -14,6 +14,7 @@ import { LOOSE_SUBCATEGORY, LOOSE_SUBCATEGORY_NAME, type CategoryNode } from '@/
  * 소분류가 비어 있는 글(looseCount)은 맨 끝의 '분류 없음' 칩으로 모은다. 이 칩만은
  * 0편이면 숨긴다 — 사람이 만든 칸이 아니라 "아직 분류하지 않은 글"의 자리라,
  * 비어 있을 때 보이면 쓸 차례를 알리는 게 아니라 잡음이 된다.
+ * 단, 지금 '분류 없음' 화면이면 0편이어도 남긴다 (현재 위치 표시).
  */
 export function SubcategoryChips({
   category,

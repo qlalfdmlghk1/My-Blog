@@ -30,7 +30,8 @@ export async function SubcategoryList({
 
   const parent = tree.find((c) => c.slug === category);
   // '분류 없음'은 문서가 없는 자리라 트리에서 찾지 않고 이름을 붙여 세운다.
-  // 0편이 돼도 404 로 두지 않는다 — 칩은 사라지지만 이미 열린 주소는 빈 목록으로 남긴다.
+  // 0편이 돼도 404 로 두지 않는다 — 다른 화면의 칩 줄에서는 사라지지만, 이미 열린 주소는
+  // 빈 목록으로 남긴다(이 화면에서는 현재 위치로 칩이 유지된다).
   const found =
     subcategory === LOOSE_SUBCATEGORY
       ? parent && { slug: LOOSE_SUBCATEGORY, name: LOOSE_SUBCATEGORY_NAME }

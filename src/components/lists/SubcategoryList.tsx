@@ -81,7 +81,9 @@ export async function SubcategoryList({
 
       {posts.length === 0 ? (
         <p className="py-20 text-center text-sm text-ink-dim">
-          이 소분류에 아직 글이 없습니다.
+          {found.slug === LOOSE_SUBCATEGORY
+            ? '분류하지 않은 글이 없습니다.'
+            : '이 소분류에 아직 글이 없습니다.'}
         </p>
       ) : (
         <>

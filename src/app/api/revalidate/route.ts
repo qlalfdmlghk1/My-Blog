@@ -5,6 +5,7 @@ import { adminAuth, hasAdminCredentials } from '@/lib/firebase/admin';
 import { getCategories, getSubcategories } from '@/lib/categories.server';
 import { countPages, pageHref } from '@/lib/pagination';
 import {
+  LOOSE_SUBCATEGORY,
   filterPostsBySubcategory,
   filterPostsByTag,
   getPostsByCategory,
@@ -141,6 +142,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       `/categories/${category.slug}`,
       (await getPostsByCategory(category.slug, posts)).length,
     );
+    // '분류 없음' 목록도 소분류 목록과 같은 이유로 함께 갱신한다 (0편이어도 — 막 비워진 쪽이 낡는다)
+    const loose = `/categories/${category.slug}/${LOOSE_SUBCATEGORY}`;
+    pushPath(loose);
+    pushList(loose, filterPostsBySubcategory(posts, category.slug, LOOSE_SUBCATEGORY).length);
   }
   // 소분류 목록도 전량 갱신한다 — 글 한 편의 소분류가 바뀌면 떠난 쪽과 도착한 쪽
   // 두 화면이 동시에 낡고, 어느 쪽이 바뀌었는지는 이 요청만 봐서는 알 수 없다.

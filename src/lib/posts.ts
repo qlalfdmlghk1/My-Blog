@@ -156,8 +156,8 @@ export interface CategoryNode extends Category {
   /** 이 카테고리의 소분류 — 사이드바 트리의 두 번째 단 */
   subs: SubcategoryNode[];
   /**
-   * 소분류가 없는 글 수. 소분류는 필수지만, 소분류를 지운 뒤 남은 글이나
-   * 예전 데이터가 여기 잡힌다 — 0 이 아니면 관리 화면이 정리를 안내한다.
+   * 소분류가 없는 글 수. 소분류는 선택 사항이라 '분류 없음'으로 고른 글이 여기 잡힌다.
+   * 0 이 아니면 카테고리 화면에 '분류 없음' 칩이 생긴다 (SubcategoryChips).
    */
   looseCount: number;
 }
@@ -232,11 +232,24 @@ export function filterPostsByTag(posts: PostSummary[], tag: string): PostSummary
   return posts.filter((p) => p.tags.includes(tag));
 }
 
-/** 소분류별 글 목록 — 카테고리와 같은 이유로 메모리에서 거른다 */
+/**
+ * '분류 없음' 칩이 가리키는 소분류 자리의 예약 slug — `/categories/{slug}/_none`.
+ *
+ * 소분류 slug 은 관리 화면의 slugify 를 거치는데, 그 함수가 `_` 를 `-` 로 바꾸므로
+ * 사람이 만든 소분류와 겹칠 수 없다. 저장값은 여전히 빈 문자열이다 — 이 값은 주소 전용이다.
+ */
+export const LOOSE_SUBCATEGORY = '_none';
+export const LOOSE_SUBCATEGORY_NAME = '분류 없음';
+
+/**
+ * 소분류별 글 목록 — 카테고리와 같은 이유로 메모리에서 거른다.
+ * `LOOSE_SUBCATEGORY` 를 넘기면 소분류가 비어 있는 글을 돌려준다 (looseCount 와 같은 기준).
+ */
 export function filterPostsBySubcategory(
   posts: PostSummary[],
   category: string,
   subcategory: string,
 ): PostSummary[] {
-  return posts.filter((p) => p.category === category && p.subcategory === subcategory);
+  const target = subcategory === LOOSE_SUBCATEGORY ? '' : subcategory;
+  return posts.filter((p) => p.category === category && p.subcategory === target);
 }

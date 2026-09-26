@@ -6,7 +6,13 @@ import { PostCard } from '@/components/PostCard';
 import { SubcategoryChips } from '@/components/SubcategoryChips';
 import { readCategories } from '@/lib/categories.server';
 import { paginate } from '@/lib/pagination';
-import { filterPostsBySubcategory, getCategoryTree, readPublishedPosts } from '@/lib/posts';
+import {
+  LOOSE_SUBCATEGORY,
+  LOOSE_SUBCATEGORY_NAME,
+  filterPostsBySubcategory,
+  getCategoryTree,
+  readPublishedPosts,
+} from '@/lib/posts';
 
 /** 소분류 목록의 본문 — `/categories/[slug]/[sub]` 와 그 `/page/[page]` 가 함께 쓴다 */
 export async function SubcategoryList({
@@ -23,7 +29,13 @@ export async function SubcategoryList({
   const tree = await getCategoryTree(all, known);
 
   const parent = tree.find((c) => c.slug === category);
-  const found = parent?.subs.find((s) => s.slug === subcategory);
+  // '분류 없음'은 문서가 없는 자리라 트리에서 찾지 않고 이름을 붙여 세운다.
+  // 0편이 돼도 404 로 두지 않는다 — 다른 화면의 칩 줄에서는 사라지지만, 이미 열린 주소는
+  // 빈 목록으로 남긴다(이 화면에서는 현재 위치로 칩이 유지된다).
+  const found =
+    subcategory === LOOSE_SUBCATEGORY
+      ? parent && { slug: LOOSE_SUBCATEGORY, name: LOOSE_SUBCATEGORY_NAME }
+      : parent?.subs.find((s) => s.slug === subcategory);
 
   if (!parent || !found) {
     // 조회가 실패해 목록이 비었을 뿐인데 404 를 내면, 살아 있는 URL 이 revalidate
@@ -70,7 +82,9 @@ export async function SubcategoryList({
 
       {posts.length === 0 ? (
         <p className="py-20 text-center text-sm text-ink-dim">
-          이 소분류에 아직 글이 없습니다.
+          {found.slug === LOOSE_SUBCATEGORY
+            ? '분류하지 않은 글이 없습니다.'
+            : '이 소분류에 아직 글이 없습니다.'}
         </p>
       ) : (
         <>
